@@ -4,12 +4,19 @@ Customer login is now **"Continue as Google"** (primary) with email + password
 as the fallback. EmailJS/OTP has been removed — no email service is needed.
 
 The backend runs on Vercel as a **serverless function** (Services on Fluid
-compute): `server.js` exports the Hono app as its default export, and the DB
-is initialised **lazily on first request — never at module load**. Vercel
-waits on any I/O started while the module loads, so opening the Neon
-connection at boot used to hang every `/api` call (that was the cause of the
-old `FUNCTION_INVOCATION_FAILED` / "Failed to fetch" errors). Now a missing or
-unreachable DB returns a fast 503 and retries on the next request.
+compute). Vercel's Node runtime invokes the exported handler with a
+**Node-style `(IncomingMessage, ServerResponse)` pair — not a Fetch `Request`**
+— so `server.js` exports `handle(app)` from `@hono/node-server/vercel`, which
+converts the request into a real `Request`, runs the app, and writes the
+response back out. Exporting `app.fetch` directly made Hono throw
+(`this.raw.headers.get is not a function`) and every `/api` call hung until
+the 300s runtime timeout — that was the cause of the old `FUNCTION_INVOCATION_FAILED`
+/ "Failed to fetch" errors.
+
+The DB is initialised **lazily on first request — never at module load** (so
+`/api/health` always answers), with a 10s connection timeout and non-fatal
+retryable init: a missing or unreachable DB returns a fast 503 instead of
+taking the whole `/api` surface down.
 
 ## 1. Env vars in Vercel (project → Settings → Environment Variables)
 
@@ -49,11 +56,12 @@ unreachable DB returns a fast 503 and retries on the next request.
   Neon database — every admin edit shows up on the public site immediately.
 - EmailJS/OTP removed: `/users/otp/send`, `/users/otp/verify` and the
   `emailjs.js` service are gone; login/register no longer need an OTP token.
-- The backend is serverless-ready: `export default app.fetch`, DB initialised
-  lazily (never at module load — Vercel waits on module-load I/O), a 10s
-  connection timeout, and non-fatal retryable init, so `/api` stays up even if
-  the database env is wrong (requests then return a readable 503 instead of a
-  function crash or hang).
+- The backend is serverless-ready: `export default handle(app)` from
+  `@hono/node-server/vercel` (Vercel Fluid invokes handlers with Node-style
+  req/res, not a Fetch Request), DB initialised lazily (never at module
+  load), a 10s connection timeout, and non-fatal retryable init — `/api`
+  stays up even if the database env is wrong (readable 503 instead of a
+  crash or hang).
 
 ## 5. If the live site still shows "Failed to fetch" on signup
 

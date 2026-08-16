@@ -5,6 +5,7 @@ import 'dotenv/config'
 import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
 import { serveStatic } from '@hono/node-server/serve-static'
+import { handle } from '@hono/node-server/vercel'
 import { swaggerUI } from '@hono/swagger-ui'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -112,9 +113,14 @@ app.onError((err, c) => {
 })
 
 /* Vercel (Services on Fluid compute) imports this module as a serverless
-   function — the default export is the Hono fetch handler. When run directly
+   function. Vercel's Node runtime invokes the handler with a Node-style
+   (IncomingMessage, ServerResponse) pair — NOT a Fetch `Request` — so
+   exporting app.fetch directly makes Hono throw (`this.raw.headers.get is not
+   a function`) and every /api call hangs until the 300s runtime timeout. The
+   @hono/node-server/vercel adapter converts the IncomingMessage into a real
+   Request, runs the app, and writes the Response back out. When run directly
    with `node server.js` this export is simply ignored. */
-export default app.fetch
+export default handle(app)
 
 // Only start the HTTP server when run directly (not when imported by tools or
 // by Vercel's serverless runtime, which sets process.env.VERCEL).
