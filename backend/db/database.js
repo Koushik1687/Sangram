@@ -9,24 +9,29 @@ import bcrypt from 'bcryptjs'
 
 let pool
 
-/* Resolve the Neon connection string. Priority order matches what Vercel and
-   Neon actually inject into the environment:
-     1. DATABASE_URL             — manually set / used locally
-     2. POSTGRES_URL             — set by the Neon (Vercel) storage integration
-     3. DATABASE_URL_UNPOOLED    — Neon's non-pooled URL, set by integrations
-     4. POSTGRES_URL_NON_POOLING — Vercel's non-pooled URL
-     5. POSTGRES_PRISMA_URL      — Vercel's Prisma-formatted URL
-   Any one of them points at the same project, so the app connects no matter
-   which naming convention the hosting environment uses. */
+/* Resolve the Neon connection string. Vercel injects the Neon integration vars
+   under several naming conventions — unprefixed (DATABASE_URL, POSTGRES_URL)
+   when set manually, or prefixed with the project slug (e.g.
+   sangram_DATABASE_URL, sangram_POSTGRES_URL) when created by the storage
+   integration. A suffix scan accepts any of them, so the app connects no
+   matter which naming convention the hosting environment uses. */
 function resolveConnectionString() {
-  const candidates = [
-    process.env.DATABASE_URL,
-    process.env.POSTGRES_URL,
-    process.env.DATABASE_URL_UNPOOLED,
-    process.env.POSTGRES_URL_NON_POOLING,
-    process.env.POSTGRES_PRISMA_URL,
+  const suffixes = [
+    'DATABASE_URL',
+    'POSTGRES_URL',
+    'DATABASE_URL_UNPOOLED',
+    'POSTGRES_URL_NON_POOLING',
+    'POSTGRES_PRISMA_URL',
   ]
-  return candidates.find((v) => v && typeof v === 'string' && v.trim() !== '')
+  for (const suffix of suffixes) {
+    for (const key of Object.keys(process.env)) {
+      if (key === suffix || key.endsWith(`_${suffix}`)) {
+        const v = process.env[key]
+        if (v && typeof v === 'string' && v.trim() !== '') return v
+      }
+    }
+  }
+  return undefined
 }
 
 function getPool() {
