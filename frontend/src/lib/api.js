@@ -1,10 +1,15 @@
-/* API client — all calls go through here */
-export const API_BASE = 'http://localhost:3001';
+/* API client — all calls go through here.
+   In production (Vercel) the API is served on the same origin via the
+   /api rewrite, so we call relative URLs. In dev, Vite proxies /api to
+   the local backend (see vite.config.js). Override with VITE_API_BASE if
+   the backend is hosted elsewhere. */
+export const API_BASE =
+  import.meta.env.VITE_API_BASE ||
+  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3001');
 const BASE = `${API_BASE}/api`;
 
 const ADMIN_TOKEN_KEY = 'ss_admin_token';
 export const CUSTOMER_TOKEN_KEY = 'ss_customer_token';
-export const CUSTOMER_USER_KEY = 'ss_customer_user';
 
 function getToken() {
   return localStorage.getItem(ADMIN_TOKEN_KEY);
@@ -19,17 +24,7 @@ export function saveCustomerToken(token) {
 }
 export function clearCustomerToken() {
   localStorage.removeItem(CUSTOMER_TOKEN_KEY);
-  localStorage.removeItem(CUSTOMER_USER_KEY);
-}
-export function getCustomerUser() {
-  try {
-    return JSON.parse(localStorage.getItem(CUSTOMER_USER_KEY)) || null;
-  } catch {
-    return null;
-  }
-}
-export function saveCustomerUser(user) {
-  localStorage.setItem(CUSTOMER_USER_KEY, JSON.stringify(user));
+  localStorage.removeItem('ss_customer_user'); // legacy cached profile — never trusted
 }
 
 /* Options: pass { customer: true } to send the customer JWT instead of the admin JWT. */

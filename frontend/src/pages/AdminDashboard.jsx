@@ -314,7 +314,7 @@ export default function AdminDashboard() {
       setOverrides(Object.fromEntries((ho || []).map((r) => [r.zodiac_sign.toLowerCase(), r])))
       setLoadError('')
     } catch {
-      setLoadError('Could not load data — is the API server running on http://localhost:3001?')
+      setLoadError('Could not load data — please check your connection and try again.')
     }
   }, [])
 
@@ -337,7 +337,7 @@ export default function AdminDashboard() {
       .then((res) => setDigestMsg(res.sent
         ? '✅ Daily sales digest sent to the admin inbox.'
         : '⚠️ Digest skipped — set MAILERSEND_API_KEY and ADMIN_ALERT_EMAIL in backend/.env.'))
-      .catch(() => setDigestMsg('Send failed — is the API server running?'))
+      .catch(() => setDigestMsg('Send failed — please try again.'))
       .finally(() => setDigestBusy(false))
   }
 
@@ -352,7 +352,7 @@ export default function AdminDashboard() {
       onConfirm: () => api
         .delete(`${entity.endpoint}/${id}`)
         .then(() => { loadAll(); showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} deleted`) })
-        .catch(() => setLoadError('Delete failed — is the API server running?')),
+        .catch(() => setLoadError('Delete failed — please try again.')),
     })
   }
 
@@ -379,7 +379,7 @@ export default function AdminDashboard() {
         }
         done()
       })
-      .catch(() => setLoadError('Save failed — is the API server running?'))
+      .catch(() => setLoadError('Save failed — please try again.'))
   }
 
   function saveHoroscope(e) {
@@ -394,7 +394,7 @@ export default function AdminDashboard() {
         mood: fd.get('mood'),
       })
       .then(() => { closeModal(); loadAll(); showToast('Horoscope updated') })
-      .catch(() => setLoadError('Save failed — is the API server running?'))
+      .catch(() => setLoadError('Save failed — please try again.'))
   }
 
   function setBookingStatus(id, status) {
@@ -403,7 +403,7 @@ export default function AdminDashboard() {
         setBookings((bs) => bs.map((b) => (b.id === id ? { ...b, status } : b)))
         showToast(`Appointment marked ${status}`)
       })
-      .catch(() => setLoadError('Update failed'))
+      .catch(() => setLoadError('Update failed — please try again.'))
   }
 
   /* Cancel an order — stock is restored server-side */
@@ -414,7 +414,7 @@ export default function AdminDashboard() {
       confirmLabel: 'Cancel order',
       onConfirm: () => api.patch(`/orders/${o.id}/status`, { status: 'CANCELLED' })
         .then(() => { loadAll(); showToast(`Order ${o.order_number} cancelled`) })
-        .catch(() => setLoadError('Cancel failed — is the API server running?')),
+        .catch(() => setLoadError('Cancel failed — please try again.')),
     })
   }
 

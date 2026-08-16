@@ -1,20 +1,9 @@
 /* routes/products.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { storeImage } from '../services/images.js'
 import { createApp, ErrorSchema, ProductImageInput, ProductInput, ProductSchema, SuccessSchema } from './schemas.js'
-
-const uploadDir = path.join(import.meta.dirname, '..', 'uploads')
-if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true })
-
-/* Sanitise upload filenames and keep the original extension. */
-function safeFilename(original) {
-  const ext = path.extname(original || '').toLowerCase().replace(/[^a-z0-9.]/g, '')
-  const base = path.basename(original || 'image', ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40)
-  return `${Date.now()}-${base || 'product'}${ext || '.jpg'}`
-}
 
 const router = createApp()
 
@@ -136,11 +125,7 @@ router.openapi(uploadImageRouteDef, async (c) => {
   const product = await get('SELECT id FROM products WHERE id = ?', [c.req.param('id')])
   if (!product) return c.json({ error: 'Product not found' }, 404)
 
-  const filename = safeFilename(image.name)
-  writeFileSync(path.join(uploadDir, filename), Buffer.from(await image.arrayBuffer()))
-  const imageUrl = `/uploads/${filename}`
-
-  await run('UPDATE products SET image_url = ? WHERE id = ?', [imageUrl, product.id])
+  await storeImage({ table: 'products', id: product.id, file: image })
   return c.json(await get('SELECT * FROM products WHERE id = ?', [product.id]))
 })
 

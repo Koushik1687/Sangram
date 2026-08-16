@@ -35,6 +35,7 @@ import orderRoutes from './routes/orders.js'
 import couponRoutes from './routes/coupons.js'
 import notificationRoutes from './routes/notifications.js'
 import shippingRoutes from './routes/shipping.js'
+import imageRoutes from './routes/images.js'
 import { runDailyDigest, yesterdayStr } from './services/salesDigest.js'
 
 const app = createApp()
@@ -74,6 +75,7 @@ app.route('/api/orders', orderRoutes)
 app.route('/api/coupons', couponRoutes)
 app.route('/api/notifications', notificationRoutes)
 app.route('/api/shipping', shippingRoutes)
+app.route('/api/images', imageRoutes)
 
 // Health check
 app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }))

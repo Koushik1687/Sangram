@@ -1,15 +1,11 @@
 /* routes/gallery.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
 import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
+import { storeImage } from '../services/images.js'
 import { createApp, ErrorSchema, GalleryInput, GalleryItemSchema, SuccessSchema } from './schemas.js'
 
 const router = createApp()
-
-const uploadDir = path.join(import.meta.dirname, '..', 'uploads')
-if (!existsSync(uploadDir)) mkdirSync(uploadDir, { recursive: true })
 
 const listRoute = createRoute({
   method: 'get',
@@ -65,15 +61,15 @@ router.openapi(listRoute, async (c) => {
 router.openapi(createRouteDef, async (c) => {
   const { label, category, image } = c.req.valid('form')
 
+  const r = await run('INSERT INTO gallery (label,image_url,category) VALUES (?,?,?)', [label, '', category || ''])
+  const id = r.lastInsertRowid
+
   let imageUrl = ''
   if (image && typeof image !== 'string' && image.name) {
-    const filename = `${Date.now()}-${image.name.replace(/\s+/g, '_')}`
-    writeFileSync(path.join(uploadDir, filename), Buffer.from(await image.arrayBuffer()))
-    imageUrl = `/uploads/${filename}`
+    imageUrl = await storeImage({ table: 'gallery', id, file: image })
   }
 
-  const r = await run('INSERT INTO gallery (label,image_url,category) VALUES (?,?,?)', [label, imageUrl, category || ''])
-  return c.json({ id: r.lastInsertRowid, label, image_url: imageUrl, category })
+  return c.json({ id, label, image_url: imageUrl, category })
 })
 
 router.openapi(deleteRouteDef, async (c) => {

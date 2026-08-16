@@ -86,10 +86,6 @@ export default function AdminLogin() {
             </button>
             {error && <p className="login-error show" id="loginError">Incorrect username or password.</p>}
           </form>
-          <p className="login-hint">
-            Demo login — username: <b>admin</b> · password: <b>admin123</b>
-            <br />(Authenticated by the Express API — see /api/auth.)
-          </p>
           <p className="login-back">
             <Link to="/">← Return to the main website</Link>
           </p>

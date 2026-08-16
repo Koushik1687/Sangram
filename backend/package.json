@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
+    "create:admin": "node scripts/create-admin.mjs",
     "generate:openapi": "node scripts/generate-openapi.mjs"
   },
   "dependencies": {

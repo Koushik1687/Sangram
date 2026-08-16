@@ -23,18 +23,44 @@ export const MessageSchema = z.object({
   message: z.string().openapi({ example: 'Booking confirmed' }),
 }).openapi('Message')
 
-/* ---------- Customer Auth ---------- */
+/* ---------- Customer Auth (OTP-verified) ---------- */
 export const CustomerRegisterInput = z.object({
   name: z.string().min(2).openapi({ example: 'Rahul Sharma' }),
   email: z.string().email().openapi({ example: 'rahul@example.com' }),
   phone: z.string().optional().openapi({ example: '9999999999' }),
   password: z.string().min(6).openapi({ example: 'secret123' }),
+  otp_token: z.string().min(20).openapi({ example: '…token returned by POST /users/otp/verify…' }),
 }).openapi('CustomerRegisterInput')
 
 export const CustomerLoginInput = z.object({
   email: z.string().email().openapi({ example: 'rahul@example.com' }),
   password: z.string().openapi({ example: 'secret123' }),
+  otp_token: z.string().min(20).openapi({ example: '…token returned by POST /users/otp/verify…' }),
 }).openapi('CustomerLoginInput')
+
+export const OtpPurpose = z.enum(['login', 'register']).openapi({ example: 'login' })
+
+export const OtpSendInput = z.object({
+  email: z.string().email().openapi({ example: 'rahul@example.com' }),
+  purpose: OtpPurpose,
+  password: z.string().optional().openapi({ example: 'secret123', description: 'Required for purpose=login — the password is validated before an OTP is sent.' }),
+}).openapi('OtpSendInput')
+
+export const OtpSendResponse = z.object({
+  success: z.boolean(),
+  dev_otp: z.string().optional().openapi({ description: 'Only present in local dev when EmailJS is not configured.' }),
+}).openapi('OtpSendResponse')
+
+export const OtpVerifyInput = z.object({
+  email: z.string().email().openapi({ example: 'rahul@example.com' }),
+  code: z.string().regex(/^\d{6}$/).openapi({ example: '123456' }),
+  purpose: OtpPurpose,
+}).openapi('OtpVerifyInput')
+
+export const OtpVerifyResponse = z.object({
+  success: z.boolean(),
+  token: z.string().openapi({ example: '…one-time verification token…' }),
+}).openapi('OtpVerifyResponse')
 
 export const CustomerSchema = z.object({
   id: z.number(),
@@ -154,7 +180,7 @@ export const ShippingConfigResponse = z.object({
 /* ---------- Auth ---------- */
 export const LoginInput = z.object({
   username: z.string().openapi({ example: 'admin' }),
-  password: z.string().openapi({ example: 'admin123' }),
+  password: z.string().openapi({ example: '••••••••' }),
 }).openapi('LoginInput')
 export const LoginResponse = z.object({
   token: z.string().openapi({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…' }),

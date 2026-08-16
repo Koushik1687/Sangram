@@ -1,22 +1,22 @@
 /* ==========================================================================
    auth.jsx — Customer authentication context for the shop.
-   Session is persisted in localStorage and validated against /api/users/me
-   on load so stale tokens are cleared automatically.
+   The session is DB-backed: the JWT (stored in localStorage, as required by
+   a browser SPA) is validated against /api/users/me on load, and the user
+   profile is always fetched from the database. A cached profile in
+   localStorage is never trusted to mark anyone as logged in.
    ========================================================================== */
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import {
   api,
   clearCustomerToken,
   getCustomerToken,
-  getCustomerUser,
   saveCustomerToken,
-  saveCustomerUser,
 } from './api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(getCustomerUser)
+  const [user, setUser] = useState(null)
   const [token, setToken] = useState(getCustomerToken)
   const [ready, setReady] = useState(false)
 
@@ -31,7 +31,6 @@ export function AuthProvider({ children }) {
       .then((u) => {
         if (!live) return
         setUser(u)
-        saveCustomerUser(u)
       })
       .catch(() => {
         if (!live) return
@@ -45,10 +44,9 @@ export function AuthProvider({ children }) {
     return () => { live = false }
   }, [token])
 
-  const login = useCallback(async (email, password) => {
-    const res = await api.post('/users/login', { email, password }, { customer: true })
+  const login = useCallback(async (email, password, otpToken) => {
+    const res = await api.post('/users/login', { email, password, otp_token: otpToken }, { customer: true })
     saveCustomerToken(res.token)
-    saveCustomerUser(res.user)
     setToken(res.token)
     setUser(res.user)
     return res.user
@@ -57,7 +55,6 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (payload) => {
     const res = await api.post('/users/register', payload, { customer: true })
     saveCustomerToken(res.token)
-    saveCustomerUser(res.user)
     setToken(res.token)
     setUser(res.user)
     return res.user
@@ -69,10 +66,9 @@ export function AuthProvider({ children }) {
     setUser(null)
   }, [])
 
-  /* Keep context + localStorage in sync after a profile update. */
+  /* Keep context in sync after a profile update. */
   const updateUser = useCallback((u) => {
     setUser(u)
-    saveCustomerUser(u)
   }, [])
 
   return (

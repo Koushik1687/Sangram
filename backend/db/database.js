@@ -204,6 +204,18 @@ async function initSchema() {
       created_at TIMESTAMPTZ DEFAULT now()
     );
 
+    CREATE TABLE IF NOT EXISTS otp_codes (
+      id SERIAL PRIMARY KEY,
+      email TEXT NOT NULL,
+      code TEXT NOT NULL,
+      purpose TEXT NOT NULL,
+      verify_token TEXT,
+      used INTEGER DEFAULT 0,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_otp_codes_email ON otp_codes(email);
+
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
       order_number TEXT UNIQUE NOT NULL,
@@ -252,14 +264,54 @@ async function initSchema() {
   await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER`)
   await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER`)
   await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_alerted INTEGER DEFAULT 0`)
+
+  // Image bytes live in the database (Vercel's filesystem is ephemeral).
+  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_data BYTEA`)
+  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_mime TEXT`)
+  await exec(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data BYTEA`)
+  await exec(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime TEXT`)
+  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_data BYTEA`)
+  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_mime TEXT`)
 }
 
 async function seedData() {
-  // Admin user
-  const adminExists = await get('SELECT id FROM admins WHERE username = ?', ['admin'])
-  if (!adminExists) {
-    const hash = bcrypt.hashSync('admin123', 10)
-    await run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', ['admin', hash])
+  // ---- Admin access --------------------------------------------------------
+  // No default admin is ever created — there is no admin/admin123 backdoor.
+  // 1. Delete any admin whose password is still the old default 'admin123'
+  //    (covers databases seeded before this change, including production).
+  // 2. If ADMIN_INITIAL_PASSWORD is set, create/update the admin account with
+  //    that password so the owner can sign in right after deployment. Without
+  //    it the site simply has no admin until one is created via the script
+  //    (npm run create:admin) or this env var.
+  const admins = await query('SELECT * FROM admins')
+  for (const a of admins) {
+    if (bcrypt.compareSync('admin123', a.password_hash)) {
+      await run('DELETE FROM admins WHERE id = ?', [a.id])
+      console.warn(`[seed] Removed admin "${a.username}" — the default password 'admin123' is no longer allowed`)
+    }
+  }
+
+  const initialUser = process.env.ADMIN_INITIAL_USERNAME || 'admin'
+  const initialPass = process.env.ADMIN_INITIAL_PASSWORD
+  if (initialPass) {
+    if (initialPass.length < 8) {
+      console.warn('[seed] ADMIN_INITIAL_PASSWORD ignored — must be at least 8 characters')
+    } else {
+      const hash = bcrypt.hashSync(initialPass, 10)
+      const existing = await get('SELECT id FROM admins WHERE username = ?', [initialUser])
+      if (existing) {
+        await run('UPDATE admins SET password_hash = ? WHERE id = ?', [hash, existing.id])
+        console.log(`[seed] Updated admin "${initialUser}" password from ADMIN_INITIAL_PASSWORD`)
+      } else {
+        await run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [initialUser, hash])
+        console.log(`[seed] Created admin "${initialUser}" from ADMIN_INITIAL_PASSWORD`)
+      }
+    }
+  }
+
+  const adminCount = Number((await get('SELECT COUNT(*) AS n FROM admins')).n)
+  if (adminCount === 0) {
+    console.warn('[seed] No admin accounts exist. Set ADMIN_INITIAL_PASSWORD or run `npm run create:admin` to create one.')
   }
 
   // Seed the shop taxonomy (top-level categories) on first run
