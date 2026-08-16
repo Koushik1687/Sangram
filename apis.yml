@@ -1,0 +1,336 @@
+aid: phonepe
+name: PhonePe
+description: >-
+  PhonePe is India's largest UPI payments network, owned by Walmart. Its
+  PhonePe Business / Developer platform exposes the PhonePe Payment Gateway
+  (PG) APIs for collecting payments, refunds, and status checks across UPI,
+  cards, netbanking, and wallets, alongside in-store solutions (Static QR,
+  Dynamic QR, Collect Call, Integrated EDC). Backend integrations are wrapped
+  in official Java, Python, Node.js, and PHP server SDKs, with mobile SDKs
+  for Android, iOS, Flutter, React Native, and Ionic. PhonePe also operates
+  the Indus AppStore, a developer platform for native app distribution in
+  India.
+type: Index
+accessModel:
+  pricing: free
+  onboarding: self-serve
+  trial: false
+  try_now: true
+  public: false
+  label: Free · Self-serve signup
+  confidence: high
+  source:
+  - plans
+  - authentication
+  generated: '2026-07-22'
+  method: derived
+image: https://kinlane-images.s3.amazonaws.com/shared/apis-json/icons/phonepe.png
+access: 3rd-Party
+position: Producer
+created: '2026-05-23'
+modified: '2026-05-23'
+tags:
+  - Payments
+  - Payment Gateway
+  - UPI
+  - QR
+  - EDC
+  - App Store
+  - Fintech
+  - India
+url: >-
+  https://raw.githubusercontent.com/api-evangelist/phonepe/refs/heads/main/apis.yml
+specificationVersion: '0.20'
+apis:
+- aid: phonepe:pg
+  name: PhonePe Payment Gateway API
+  description: >-
+    Server-to-server REST API for creating PhonePe checkout orders, kicking off UPI / card / wallet /
+    netbanking flows, and retrieving payment status. Issues redirect or intent URLs for the buyer to authorize
+    and returns settlement-ready transaction state on completion.
+  humanURL: https://developer.phonepe.com/v1/docs/intro
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Payments
+  - Checkout
+  - Payment Gateway
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/intro
+- aid: phonepe:refunds
+  name: PhonePe Refunds API
+  description: >-
+    Initiates refunds against completed PhonePe transactions and retrieves refund status. Supports partial
+    and full refunds.
+  humanURL: https://developer.phonepe.com/v1/docs/refund-api
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Refunds
+  - Payments
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/refund-api
+- aid: phonepe:status
+  name: PhonePe Check Payment Status API
+  description: >-
+    Polling endpoint to retrieve the current status of a payment order by merchant order ID. Used to reconcile
+    in-store and online flows after buyer authorisation.
+  humanURL: https://developer.phonepe.com/v1/docs/check-status-api
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Status
+  - Reconciliation
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/check-status-api
+- aid: phonepe:webhook
+  name: PhonePe S2S Callback / Webhook
+  description: >-
+    Server-to-server callback that PhonePe POSTs to a merchant-configured URL on terminal payment events.
+    Payloads are signed (X-VERIFY) so the merchant can verify authenticity before acting on the result.
+  humanURL: https://developer.phonepe.com/v1/docs/webhook
+  baseURL: customer-configured
+  tags:
+  - Webhooks
+  - Callbacks
+  - Events
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/webhook
+- aid: phonepe:dynamic-qr
+  name: PhonePe Dynamic QR Solution
+  description: >-
+    Generates per-order dynamic QR codes for in-store collection, with order-linked status retrieval and
+    callbacks. Targeted at retail counters and quick-service merchants.
+  humanURL: https://developer.phonepe.com/v1/docs/dynamic-qr
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - QR
+  - In Store
+  - UPI
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/dynamic-qr
+- aid: phonepe:static-qr
+  name: PhonePe Integrated Static QR
+  description: >-
+    Onboards a merchant store with a static PhonePe QR code that maps collected funds to the merchant
+    account. Lower-touch alternative to dynamic QR for fixed-price kiosks and stalls.
+  humanURL: https://developer.phonepe.com/v1/docs/static-qr
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - QR
+  - In Store
+  - Static
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/static-qr
+- aid: phonepe:collect-call
+  name: PhonePe Collect Call Solution
+  description: >-
+    Merchant-initiated UPI collect-request flow: the merchant raises a payment request to a customer's
+    UPI handle, the customer approves in their UPI app, and the merchant is notified on completion.
+  humanURL: https://developer.phonepe.com/v1/docs/collect-call
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - UPI
+  - Collect
+  - In Store
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/collect-call
+- aid: phonepe:edc
+  name: PhonePe Integrated EDC Solution
+  description: >-
+    Integration with PhonePe's EDC (Electronic Data Capture / POS) terminals, allowing merchant systems
+    to push order amounts to the terminal and receive completion events.
+  humanURL: https://developer.phonepe.com/v1/docs/edc
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - EDC
+  - POS
+  - In Store
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/edc
+- aid: phonepe:android-sdk
+  name: PhonePe Android SDK
+  description: >-
+    Native Android SDK that embeds the PhonePe checkout experience inside a merchant app, supporting the
+    full PG flow across UPI and other payment methods.
+  humanURL: https://developer.phonepe.com/v1/docs/android-pg-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/android-pg-sdk
+  tags:
+  - SDK
+  - Android
+  - Mobile
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/android-pg-sdk
+- aid: phonepe:ios-sdk
+  name: PhonePe iOS SDK
+  description: Native iOS SDK that embeds the PhonePe checkout experience inside a merchant iOS app.
+  humanURL: https://developer.phonepe.com/v1/docs/ios-pg-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/ios-pg-sdk
+  tags:
+  - SDK
+  - iOS
+  - Mobile
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/ios-pg-sdk
+- aid: phonepe:flutter-sdk
+  name: PhonePe Flutter SDK
+  description: >-
+    Flutter plugin wrapping the PhonePe Android and iOS SDKs for cross-platform mobile checkout.
+  humanURL: https://developer.phonepe.com/v1/docs/flutter-pg-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/flutter-pg-sdk
+  tags:
+  - SDK
+  - Flutter
+  - Mobile
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/flutter-pg-sdk
+- aid: phonepe:react-native-sdk
+  name: PhonePe React Native SDK
+  description: >-
+    React Native plugin wrapping the PhonePe Android and iOS SDKs for cross-platform mobile checkout.
+  humanURL: https://developer.phonepe.com/v1/docs/react-native-pg-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/react-native-pg-sdk
+  tags:
+  - SDK
+  - React Native
+  - Mobile
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/react-native-pg-sdk
+- aid: phonepe:ionic-sdk
+  name: PhonePe Ionic SDK
+  description: Ionic plugin wrapping the PhonePe Android and iOS SDKs for hybrid mobile checkout.
+  humanURL: https://developer.phonepe.com/v1/docs/ionic-pg-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/ionic-pg-sdk
+  tags:
+  - SDK
+  - Ionic
+  - Mobile
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/ionic-pg-sdk
+- aid: phonepe:java-sdk
+  name: PhonePe Java Backend SDK
+  description: >-
+    Server-side Java SDK that wraps the PhonePe PG REST API, handling X-VERIFY signing, request modelling,
+    and response parsing.
+  humanURL: https://developer.phonepe.com/v1/docs/java-backend-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/java-backend-sdk
+  tags:
+  - SDK
+  - Java
+  - Backend
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/java-backend-sdk
+- aid: phonepe:python-sdk
+  name: PhonePe Python Backend SDK
+  description: Server-side Python SDK wrapping the PhonePe PG REST API.
+  humanURL: https://developer.phonepe.com/v1/docs/python-backend-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/python-backend-sdk
+  tags:
+  - SDK
+  - Python
+  - Backend
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/python-backend-sdk
+- aid: phonepe:node-sdk
+  name: PhonePe Node.js Backend SDK
+  description: Server-side Node.js SDK wrapping the PhonePe PG REST API.
+  humanURL: https://developer.phonepe.com/v1/docs/node-backend-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/node-backend-sdk
+  tags:
+  - SDK
+  - Node.js
+  - Backend
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/node-backend-sdk
+- aid: phonepe:php-sdk
+  name: PhonePe PHP Backend SDK
+  description: Server-side PHP SDK wrapping the PhonePe PG REST API.
+  humanURL: https://developer.phonepe.com/v1/docs/php-backend-sdk
+  baseURL: https://developer.phonepe.com/v1/docs/php-backend-sdk
+  tags:
+  - SDK
+  - PHP
+  - Backend
+  properties:
+  - type: Documentation
+    url: https://developer.phonepe.com/v1/docs/php-backend-sdk
+- aid: phonepe:indus-appstore
+  name: Indus AppStore Developer Platform
+  description: >-
+    PhonePe's Indus AppStore is an India-first native Android app marketplace with a developer console
+    for app submission, listings, releases, and analytics, positioning itself as a local alternative to
+    Google Play in India.
+  humanURL: https://www.indusappstore.com/developer/
+  baseURL: https://www.indusappstore.com/developer/
+  tags:
+  - App Store
+  - Distribution
+  - Android
+  properties:
+  - type: Website
+    url: https://www.indusappstore.com/developer/
+- aid: phonepe:phonepe-checkout-api
+  name: PhonePe Checkout API
+  description: Create payment orders.
+  humanURL: https://developer.phonepe.com/v1/docs/intro
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Checkout
+  properties:
+  - type: OpenAPI
+    url: openapi/phonepe-checkout-api-openapi.yml
+- aid: phonepe:phonepe-order-status-api
+  name: PhonePe Order Status API
+  description: Retrieve the status of a payment order.
+  humanURL: https://developer.phonepe.com/v1/docs/intro
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Order Status
+  properties:
+  - type: OpenAPI
+    url: openapi/phonepe-order-status-api-openapi.yml
+- aid: phonepe:phonepe-refunds-api
+  name: PhonePe Refunds API
+  description: Initiate and track refunds.
+  humanURL: https://developer.phonepe.com/v1/docs/intro
+  baseURL: https://api.phonepe.com/apis/pg
+  tags:
+  - Refunds
+  properties:
+  - type: OpenAPI
+    url: openapi/phonepe-refunds-api-openapi.yml
+common:
+  - type: AgenticAccess
+    url: agentic-access/phonepe-agentic-access.yml
+  - type: VulnerabilityDisclosure
+    url: security/phonepe-vulnerability-disclosure.yml
+  - type: DomainSecurity
+    url: security/phonepe-domain-security.yml
+  - type: Authentication
+    url: authentication/phonepe-authentication.yml
+  - type: Website
+    url: https://www.phonepe.com/business-solutions/
+  - type: Documentation
+    url: https://developer.phonepe.com/
+  - type: LinkedIn
+    url: https://www.linkedin.com/company/phonepe
+  - type: GitHub
+    url: https://github.com/PhonePe
+  - type: AppStore
+    url: https://www.indusappstore.com/
+maintainers:
+  - FN: API Evangelist
+    url: https://apievangelist.com

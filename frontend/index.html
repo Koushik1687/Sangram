@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sree Sangram — Vedic Astrologer & Spiritual Guidance</title>
+    <meta name="description"
+      content="Sree Sangram — a seasoned Vedic astrologer with 20+ years of experience. Book an appointment for kundali analysis, marriage guidance, career guidance, business advice, and gemstone consultation." />
+    <meta name="theme-color" content="#f6ecd2" />
+    <script>
+      // Apply the saved theme before first paint to avoid a flash. First-time
+      // visitors (no saved choice) follow the OS prefers-color-scheme.
+      (function () {
+        try {
+          var root = document.documentElement
+          var saved = null
+          try { saved = localStorage.getItem('sree-sangram-theme') } catch (e) {}
+          var theme = saved ||
+            (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          root.setAttribute('data-theme', theme)
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) {
+            meta.setAttribute('content', theme === 'dark' ? '#181009' : '#f6ecd2')
+          }
+        } catch (e) {}
+      })()
+    </script>
+    <link rel="icon" type="image/png" href="/images/favicon/favicon-96x96.png" sizes="96x96" />
+    <link rel="icon" type="image/svg+xml" href="/images/favicon/favicon.svg" />
+    <link rel="shortcut icon" href="/images/favicon/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/favicon/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Jost:wght@300;400;500;600&display=swap"
+      rel="stylesheet" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

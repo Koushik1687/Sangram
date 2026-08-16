@@ -1,0 +1,2209 @@
+openapi: 3.0.0
+info:
+  title: Sree Sangram API
+  version: 1.0.0
+  description: >-
+    Backend API for the Sree Sangram Vedic astrology website — bookings, horoscope overrides, shop, blog, chambers,
+    gallery, testimonials, and enquiries. Authenticated admin endpoints require a `Bearer` token from `POST
+    /api/auth/login`.
+components:
+  schemas:
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9…
+      required:
+        - token
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    LoginInput:
+      type: object
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: admin123
+      required:
+        - username
+        - password
+    Product:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        category:
+          type: string
+          nullable: true
+        price:
+          type: number
+        description:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+          nullable: true
+        stock:
+          type: number
+          nullable: true
+        low_stock_threshold:
+          type: number
+          nullable: true
+        low_stock_alerted:
+          type: number
+        is_active:
+          type: number
+        created_at:
+          type: string
+      required:
+        - id
+        - name
+        - price
+      additionalProperties:
+        nullable: true
+    ProductInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Blue Sapphire
+        category:
+          type: string
+          example: Gemstone
+        price:
+          type: number
+          example: 4500
+        description:
+          type: string
+        image_url:
+          type: string
+        stock:
+          type: integer
+          nullable: true
+          minimum: 0
+          example: 10
+          description: Units available; null = unlimited
+        low_stock_threshold:
+          type: integer
+          nullable: true
+          minimum: 0
+          example: 5
+          description: Alert admin when stock drops to this; null = global default (LOW_STOCK_THRESHOLD), 0 = off
+      required:
+        - name
+        - category
+        - price
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
+    ProductImageInput:
+      type: object
+      properties:
+        image:
+          type: string
+          format: binary
+    Blog:
+      type: object
+      properties:
+        id:
+          type: number
+        title:
+          type: string
+        category:
+          type: string
+          nullable: true
+        excerpt:
+          type: string
+          nullable: true
+        content:
+          type: string
+          nullable: true
+        featured_image:
+          type: string
+          nullable: true
+        published_at:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+      required:
+        - id
+        - title
+      additionalProperties:
+        nullable: true
+    BlogInput:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Saturn Sade Sati: preparation is key'
+        category:
+          type: string
+          example: Astrology
+        excerpt:
+          type: string
+        content:
+          type: string
+        featured_image:
+          type: string
+        published_at:
+          type: string
+          example: '2026-07-18'
+      required:
+        - title
+        - category
+    Chamber:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        address:
+          type: string
+        consultation_days:
+          type: string
+          nullable: true
+        timing:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        map_url:
+          type: string
+          nullable: true
+      required:
+        - id
+        - name
+        - address
+      additionalProperties:
+        nullable: true
+    ChamberInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Kolkata Main Chamber
+        address:
+          type: string
+          example: Gariahat Road, Kolkata - 700019
+        consultation_days:
+          type: string
+          example: Mon – Sat
+        timing:
+          type: string
+          example: 11:00 AM – 7:00 PM
+        phone:
+          type: string
+          example: +91 98300 00000
+        map_url:
+          type: string
+      required:
+        - name
+        - address
+    HoroscopeOverride:
+      type: object
+      properties:
+        id:
+          type: number
+        zodiac_sign:
+          type: string
+        reading_date:
+          type: string
+        message:
+          type: string
+          nullable: true
+        lucky_color:
+          type: string
+          nullable: true
+        lucky_number:
+          type: string
+          nullable: true
+        mood:
+          type: string
+          nullable: true
+      required:
+        - id
+        - zodiac_sign
+        - reading_date
+      additionalProperties:
+        nullable: true
+    HoroscopeOverrideInput:
+      type: object
+      properties:
+        reading_date:
+          type: string
+          example: '2026-08-13'
+        message:
+          type: string
+          example: A favourable day for teamwork.
+        lucky_color:
+          type: string
+          example: Gold
+        lucky_number:
+          type: string
+          example: '7'
+        mood:
+          type: string
+          example: Calm
+      required:
+        - reading_date
+        - message
+        - lucky_color
+        - lucky_number
+        - mood
+    Slot:
+      type: object
+      properties:
+        slot:
+          type: string
+          example: 11:00 AM
+        available:
+          type: boolean
+          example: true
+      required:
+        - slot
+        - available
+    Booking:
+      type: object
+      properties:
+        id:
+          type: number
+        client_name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          nullable: true
+        service:
+          type: string
+        chamber_id:
+          type: number
+          nullable: true
+        chamber_name:
+          type: string
+          nullable: true
+        booking_date:
+          type: string
+        time_slot:
+          type: string
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+        created_at:
+          type: string
+      required:
+        - id
+        - client_name
+        - phone
+        - service
+        - booking_date
+        - time_slot
+      additionalProperties:
+        nullable: true
+    Message:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 1
+        message:
+          type: string
+          example: Booking confirmed
+      required:
+        - id
+        - message
+    BookingInput:
+      type: object
+      properties:
+        client_name:
+          type: string
+          example: Rahul Sharma
+        phone:
+          type: string
+          example: +91 98765 43210
+        email:
+          type: string
+          format: email
+          example: rahul@example.com
+        service:
+          type: string
+          example: Kundali Analysis
+        chamber_id:
+          type: number
+          example: 1
+        booking_date:
+          type: string
+          example: '2026-08-13'
+        time_slot:
+          type: string
+          example: 11:00 AM
+        notes:
+          type: string
+      required:
+        - client_name
+        - phone
+        - service
+        - chamber_id
+        - booking_date
+        - time_slot
+    StatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - Pending
+            - Confirmed
+            - Cancelled
+      required:
+        - status
+    Testimonial:
+      type: object
+      properties:
+        id:
+          type: number
+        client_name:
+          type: string
+        role_location:
+          type: string
+          nullable: true
+        rating:
+          type: number
+          nullable: true
+        message:
+          type: string
+        is_approved:
+          type: number
+      required:
+        - id
+        - client_name
+        - message
+      additionalProperties:
+        nullable: true
+    TestimonialInput:
+      type: object
+      properties:
+        client_name:
+          type: string
+          example: Sumita Banerjee
+        role_location:
+          type: string
+          example: Kolkata
+        rating:
+          type: integer
+          minimum: 1
+          maximum: 5
+          example: 5
+        message:
+          type: string
+          example: The analysis was precise and deeply reassuring.
+      required:
+        - client_name
+        - message
+    GalleryItem:
+      type: object
+      properties:
+        id:
+          type: number
+        label:
+          type: string
+          nullable: true
+        image_url:
+          type: string
+        category:
+          type: string
+          nullable: true
+        uploaded_at:
+          type: string
+      required:
+        - id
+        - image_url
+      additionalProperties:
+        nullable: true
+    GalleryInput:
+      type: object
+      properties:
+        label:
+          type: string
+          example: Seminar 2026
+        category:
+          type: string
+          example: Events
+        image:
+          type: string
+          format: binary
+      required:
+        - label
+    Enquiry:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        message:
+          type: string
+        created_at:
+          type: string
+        is_read:
+          type: number
+      required:
+        - id
+        - name
+        - message
+      additionalProperties:
+        nullable: true
+    EnquiryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Priya Sen
+        phone:
+          type: string
+          example: +91 90000 00000
+        email:
+          type: string
+          format: email
+          example: priya@example.com
+        message:
+          type: string
+          example: I would like to book a consultation.
+      required:
+        - name
+        - message
+    InitiatePaymentResponse:
+      type: object
+      properties:
+        merchant_order_id:
+          type: string
+        redirect_url:
+          type: string
+        status:
+          type: string
+        message:
+          type: string
+      required:
+        - merchant_order_id
+        - status
+    InitiatePaymentInput:
+      type: object
+      properties:
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 1200
+        customer_name:
+          type: string
+          example: Rahul Sharma
+        customer_phone:
+          type: string
+          example: '9999999999'
+        customer_email:
+          type: string
+          format: email
+          example: rahul@example.com
+        booking_id:
+          type: number
+          example: 1
+        product_id:
+          type: number
+          example: 2
+        order_id:
+          type: number
+          example: 1
+        redirect_url:
+          type: string
+          example: http://localhost:5173/payment-status
+      required:
+        - amount
+    PaymentRecord:
+      type: object
+      properties:
+        id:
+          type: number
+        merchant_order_id:
+          type: string
+        amount:
+          type: number
+        status:
+          type: string
+        customer_name:
+          type: string
+          nullable: true
+        customer_phone:
+          type: string
+          nullable: true
+        customer_email:
+          type: string
+          nullable: true
+        booking_id:
+          type: number
+          nullable: true
+        product_id:
+          type: number
+          nullable: true
+        order_id:
+          type: number
+          nullable: true
+        phonepe_transaction_id:
+          type: string
+          nullable: true
+        response_code:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+      required:
+        - id
+        - merchant_order_id
+        - amount
+        - status
+      additionalProperties:
+        nullable: true
+    RefundInput:
+      type: object
+      properties:
+        merchant_order_id:
+          type: string
+          example: ORD1700000000000
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 500
+      required:
+        - merchant_order_id
+        - amount
+    CustomerAuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/Customer'
+      required:
+        - token
+        - user
+    Customer:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+      required:
+        - id
+        - name
+        - email
+      additionalProperties:
+        nullable: true
+    CustomerRegisterInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Rahul Sharma
+        email:
+          type: string
+          format: email
+          example: rahul@example.com
+        phone:
+          type: string
+          example: '9999999999'
+        password:
+          type: string
+          minLength: 6
+          example: secret123
+      required:
+        - name
+        - email
+        - password
+    CustomerLoginInput:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          example: rahul@example.com
+        password:
+          type: string
+          example: secret123
+      required:
+        - email
+        - password
+    Order:
+      type: object
+      properties:
+        id:
+          type: number
+        order_number:
+          type: string
+        user_id:
+          type: number
+        total:
+          type: number
+        status:
+          type: string
+        address:
+          type: string
+          nullable: true
+        discount:
+          type: number
+          nullable: true
+        coupon_code:
+          type: string
+          nullable: true
+        shipping_fee:
+          type: number
+          nullable: true
+        created_at:
+          type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItem'
+      required:
+        - id
+        - order_number
+        - user_id
+        - total
+        - status
+      additionalProperties:
+        nullable: true
+    OrderItem:
+      type: object
+      properties:
+        id:
+          type: number
+        order_id:
+          type: number
+        product_id:
+          type: number
+          nullable: true
+        product_name:
+          type: string
+        price:
+          type: number
+        quantity:
+          type: number
+      required:
+        - id
+        - order_id
+        - product_name
+        - price
+        - quantity
+      additionalProperties:
+        nullable: true
+    OrderInput:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderItemInput'
+          minItems: 1
+        address:
+          type: string
+          example: 12 Lake Road, Kolkata - 700019
+        coupon_code:
+          type: string
+          example: WELCOME10
+      required:
+        - items
+    OrderItemInput:
+      type: object
+      properties:
+        product_id:
+          type: number
+          example: 1
+        quantity:
+          type: integer
+          minimum: 1
+          default: 1
+          example: 1
+      required:
+        - product_id
+    OrderStatusInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+            - CANCELLED
+            - REFUNDED
+          example: CANCELLED
+      required:
+        - status
+    Coupon:
+      type: object
+      properties:
+        id:
+          type: number
+        code:
+          type: string
+        discount_type:
+          type: string
+        discount_value:
+          type: number
+        min_order_amount:
+          type: number
+          nullable: true
+        max_discount:
+          type: number
+          nullable: true
+        valid_until:
+          type: string
+          nullable: true
+        usage_limit:
+          type: number
+        used_count:
+          type: number
+        is_active:
+          type: number
+        created_at:
+          type: string
+      required:
+        - id
+        - code
+        - discount_type
+        - discount_value
+      additionalProperties:
+        nullable: true
+    CouponInput:
+      type: object
+      properties:
+        code:
+          type: string
+          minLength: 2
+          example: WELCOME10
+        discount_type:
+          type: string
+          enum:
+            - percent
+            - flat
+          example: percent
+        discount_value:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 10
+        min_order_amount:
+          type: number
+          minimum: 0
+          example: 500
+        max_discount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 500
+        valid_until:
+          type: string
+          example: '2027-12-31'
+        usage_limit:
+          type: integer
+          minimum: 0
+          example: 100
+        is_active:
+          type: integer
+          example: 1
+      required:
+        - code
+        - discount_type
+        - discount_value
+    ValidateCouponResponse:
+      type: object
+      properties:
+        valid:
+          type: boolean
+        discount:
+          type: number
+        message:
+          type: string
+        coupon:
+          $ref: '#/components/schemas/Coupon'
+      required:
+        - valid
+        - discount
+    ValidateCouponInput:
+      type: object
+      properties:
+        code:
+          type: string
+          example: WELCOME10
+        amount:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+          example: 1200
+      required:
+        - code
+        - amount
+    ShippingConfigResponse:
+      type: object
+      properties:
+        fee:
+          type: number
+          example: 49
+          description: Flat shipping fee in ₹; 0 = free shipping always
+        free_shipping_min:
+          type: number
+          example: 999
+          description: Orders at/above this subtotal ship free; 0 = no free-shipping threshold
+      required:
+        - fee
+        - free_shipping_min
+  parameters: {}
+paths:
+  /api/auth/login:
+    post:
+      tags:
+        - Auth
+      summary: Admin login — returns a JWT bearer token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginInput'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Missing fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/products:
+    get:
+      tags:
+        - Products
+      summary: List active products
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+    post:
+      tags:
+        - Products
+      summary: Create a product (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Created product
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/products/{id}:
+    put:
+      tags:
+        - Products
+      summary: Update a product (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Products
+      summary: Soft-delete a product (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/products/{id}/image:
+    post:
+      tags:
+        - Products
+      summary: Upload a product photo (admin) — sets image_url
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ProductImageInput'
+      responses:
+        '200':
+          description: Image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '400':
+          description: No file provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/blogs:
+    get:
+      tags:
+        - Blogs
+      summary: List blog posts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Blog'
+    post:
+      tags:
+        - Blogs
+      summary: Create a blog post (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogInput'
+      responses:
+        '200':
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Blog'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/blogs/{id}:
+    put:
+      tags:
+        - Blogs
+      summary: Update a blog post (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlogInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Blogs
+      summary: Delete a blog post (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/chambers:
+    get:
+      tags:
+        - Chambers
+      summary: List consultation chambers
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Chamber'
+    post:
+      tags:
+        - Chambers
+      summary: Create a chamber (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChamberInput'
+      responses:
+        '200':
+          description: Created chamber
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chamber'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/chambers/{id}:
+    put:
+      tags:
+        - Chambers
+      summary: Update a chamber (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChamberInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Chambers
+      summary: Delete a chamber (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/horoscope:
+    get:
+      tags:
+        - Horoscope
+      summary: Get admin-set horoscope overrides for a date
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: date
+          in: query
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HoroscopeOverride'
+  /api/horoscope/{sign}:
+    put:
+      tags:
+        - Horoscope
+      summary: Set a horoscope override for a sign on a date (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: sign
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HoroscopeOverrideInput'
+      responses:
+        '200':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/bookings/slots:
+    get:
+      tags:
+        - Bookings
+      summary: Get available time slots for a chamber and date
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: chamber_id
+          in: query
+        - schema:
+            type: string
+          required: true
+          name: date
+          in: query
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Slot'
+        '400':
+          description: chamber_id and date required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/bookings:
+    get:
+      tags:
+        - Bookings
+      summary: List all bookings, optionally filtered by date (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: false
+          name: date
+          in: query
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Booking'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Bookings
+      summary: Create a new booking (public)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookingInput'
+      responses:
+        '200':
+          description: Booking confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Slot already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/bookings/{id}/status:
+    patch:
+      tags:
+        - Bookings
+      summary: Update a booking status (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Invalid status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/bookings/{id}:
+    delete:
+      tags:
+        - Bookings
+      summary: Delete a booking (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/testimonials:
+    get:
+      tags:
+        - Testimonials
+      summary: List approved testimonials
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Testimonial'
+    post:
+      tags:
+        - Testimonials
+      summary: Add a testimonial (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestimonialInput'
+      responses:
+        '200':
+          description: Created testimonial
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Testimonial'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/testimonials/{id}:
+    delete:
+      tags:
+        - Testimonials
+      summary: Unapprove a testimonial (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/gallery:
+    get:
+      tags:
+        - Gallery
+      summary: List gallery items
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GalleryItem'
+    post:
+      tags:
+        - Gallery
+      summary: Add a gallery item with an optional image upload (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/GalleryInput'
+      responses:
+        '200':
+          description: Created gallery item
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryItem'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/gallery/{id}:
+    delete:
+      tags:
+        - Gallery
+      summary: Delete a gallery item (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/enquiries:
+    get:
+      tags:
+        - Enquiries
+      summary: List customer enquiries (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Enquiry'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Enquiries
+      summary: Submit a customer enquiry (public)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnquiryInput'
+      responses:
+        '200':
+          description: Enquiry received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: Name and message required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/enquiries/{id}/read:
+    patch:
+      tags:
+        - Enquiries
+      summary: Mark an enquiry as read (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Marked as read
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/enquiries/{id}:
+    delete:
+      tags:
+        - Enquiries
+      summary: Delete an enquiry (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/payments/initiate:
+    post:
+      tags:
+        - Payments
+      summary: Initiate a PhonePe Standard Checkout payment
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InitiatePaymentInput'
+      responses:
+        '200':
+          description: Payment initiated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InitiatePaymentResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: PhonePe PG Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/payments/status/{orderId}:
+    get:
+      tags:
+        - Payments
+      summary: Get PhonePe payment status by Merchant Order ID
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: orderId
+          in: path
+      responses:
+        '200':
+          description: Payment status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentRecord'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/payments/callback:
+    post:
+      tags:
+        - Payments
+      summary: PhonePe webhook / server-to-server callback
+      responses:
+        '200':
+          description: Callback received
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+  /api/payments/refund:
+    post:
+      tags:
+        - Payments
+      summary: Initiate a refund for a PhonePe transaction (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefundInput'
+      responses:
+        '200':
+          description: Refund processed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Refund error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/payments:
+    get:
+      tags:
+        - Payments
+      summary: List all payment transactions (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PaymentRecord'
+  /api/users/register:
+    post:
+      tags:
+        - Customers
+      summary: Create a customer account and return a JWT
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerRegisterInput'
+      responses:
+        '200':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAuthResponse'
+        '400':
+          description: Invalid input / email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/login:
+    post:
+      tags:
+        - Customers
+      summary: Customer login — returns a JWT
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerLoginInput'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/me:
+    get:
+      tags:
+        - Customers
+      summary: Get the current customer profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Customer profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders:
+    post:
+      tags:
+        - Orders
+      summary: Create an order from product ids (customer)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+      responses:
+        '200':
+          description: Order created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '400':
+          description: Invalid items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    get:
+      tags:
+        - Orders
+      summary: List the current customer’s orders
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/all:
+    get:
+      tags:
+        - Orders
+      summary: List all orders with payment info (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Orders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/{id}:
+    get:
+      tags:
+        - Orders
+      summary: Get a single order with its items (customer)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/orders/{id}/status:
+    patch:
+      tags:
+        - Orders
+      summary: Cancel or refund an order and restore its stock (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusInput'
+      responses:
+        '200':
+          description: Status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Order already finalised
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/coupons:
+    get:
+      tags:
+        - Coupons
+      summary: List all coupons (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Coupon'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      tags:
+        - Coupons
+      summary: Create a coupon (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponInput'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Coupon'
+        '400':
+          description: Code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/coupons/{id}:
+    put:
+      tags:
+        - Coupons
+      summary: Update a coupon (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CouponInput'
+      responses:
+        '200':
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags:
+        - Coupons
+      summary: Delete a coupon (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/coupons/validate:
+    post:
+      tags:
+        - Coupons
+      summary: Validate a coupon code for a cart amount (checkout)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateCouponInput'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateCouponResponse'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/notifications/digest:
+    post:
+      tags:
+        - Notifications
+      summary: Send the daily sales digest email for a date (admin) — defaults to yesterday
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date:
+                  type: string
+                  example: '2026-08-13'
+      responses:
+        '200':
+          description: Digest sent or skipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  sent:
+                    type: boolean
+                  stats:
+                    nullable: true
+                required:
+                  - success
+                  - sent
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/shipping:
+    get:
+      tags:
+        - Shipping
+      summary: Get the current shipping config (flat fee + free-shipping threshold)
+      responses:
+        '200':
+          description: Shipping config
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShippingConfigResponse'
