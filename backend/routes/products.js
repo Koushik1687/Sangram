@@ -2,7 +2,7 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, ErrorSchema, ProductImageInput, ProductInput, ProductSchema, SuccessSchema } from './schemas.js'
 
@@ -101,33 +101,29 @@ const uploadImageRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  const db = getDb()
-  return c.json(db.prepare('SELECT * FROM products WHERE is_active=1 ORDER BY id DESC').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM products WHERE is_active=1 ORDER BY id DESC'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { name, category, price, description, image_url, stock, low_stock_threshold } = c.req.valid('json')
-  const db = getDb()
-  const r = db.prepare('INSERT INTO products (name,category,price,description,image_url,stock,low_stock_threshold) VALUES (?,?,?,?,?,?,?)')
-    .run(name, category, price, description, image_url || '', stock ?? null, low_stock_threshold ?? null)
+  const r = await run('INSERT INTO products (name,category,price,description,image_url,stock,low_stock_threshold) VALUES (?,?,?,?,?,?,?)',
+    [name, category, price, description, image_url || '', stock ?? null, low_stock_threshold ?? null])
   return c.json({
     id: r.lastInsertRowid, name, category, price, description, image_url,
     stock: stock ?? null, low_stock_threshold: low_stock_threshold ?? null,
   })
 })
 
-router.openapi(updateRouteDef, (c) => {
+router.openapi(updateRouteDef, async (c) => {
   const { name, category, price, description, image_url, stock, low_stock_threshold } = c.req.valid('json')
-  const db = getDb()
-  db.prepare('UPDATE products SET name=?,category=?,price=?,description=?,image_url=?,stock=?,low_stock_threshold=? WHERE id=?')
-    .run(name, category, price, description, image_url || '', stock ?? null, low_stock_threshold ?? null, c.req.param('id'))
+  await run('UPDATE products SET name=?,category=?,price=?,description=?,image_url=?,stock=?,low_stock_threshold=? WHERE id=?',
+    [name, category, price, description, image_url || '', stock ?? null, low_stock_threshold ?? null, c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  const db = getDb()
-  db.prepare('UPDATE products SET is_active=0 WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('UPDATE products SET is_active=0 WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 
@@ -137,16 +133,15 @@ router.openapi(uploadImageRouteDef, async (c) => {
     return c.json({ error: 'No image file provided' }, 400)
   }
 
-  const db = getDb()
-  const product = db.prepare('SELECT id FROM products WHERE id = ?').get(c.req.param('id'))
+  const product = await get('SELECT id FROM products WHERE id = ?', [c.req.param('id')])
   if (!product) return c.json({ error: 'Product not found' }, 404)
 
   const filename = safeFilename(image.name)
   writeFileSync(path.join(uploadDir, filename), Buffer.from(await image.arrayBuffer()))
   const imageUrl = `/uploads/${filename}`
 
-  db.prepare('UPDATE products SET image_url = ? WHERE id = ?').run(imageUrl, product.id)
-  return c.json(db.prepare('SELECT * FROM products WHERE id = ?').get(product.id))
+  await run('UPDATE products SET image_url = ? WHERE id = ?', [imageUrl, product.id])
+  return c.json(await get('SELECT * FROM products WHERE id = ?', [product.id]))
 })
 
 export default router

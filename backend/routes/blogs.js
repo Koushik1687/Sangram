@@ -1,6 +1,6 @@
 /* routes/blogs.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { BlogInput, BlogSchema, createApp, ErrorSchema, SuccessSchema } from './schemas.js'
 
@@ -67,27 +67,28 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM blogs ORDER BY published_at DESC').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM blogs ORDER BY published_at DESC'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { title, category, excerpt, content, featured_image, published_at } = c.req.valid('json')
-  const db = getDb()
-  const r = db.prepare('INSERT INTO blogs (title,category,excerpt,content,featured_image,published_at) VALUES (?,?,?,?,?,?)')
-    .run(title, category, excerpt, content || '', featured_image || '', published_at || new Date().toISOString().slice(0, 10))
+  const r = await run(
+    'INSERT INTO blogs (title,category,excerpt,content,featured_image,published_at) VALUES (?,?,?,?,?,?)',
+    [title, category, excerpt, content || '', featured_image || '', published_at || new Date().toISOString().slice(0, 10)],
+  )
   return c.json({ id: r.lastInsertRowid, title, category, excerpt })
 })
 
-router.openapi(updateRouteDef, (c) => {
+router.openapi(updateRouteDef, async (c) => {
   const { title, category, excerpt, content, featured_image, published_at } = c.req.valid('json')
-  getDb().prepare('UPDATE blogs SET title=?,category=?,excerpt=?,content=?,featured_image=?,published_at=? WHERE id=?')
-    .run(title, category, excerpt, content || '', featured_image || '', published_at, c.req.param('id'))
+  await run('UPDATE blogs SET title=?,category=?,excerpt=?,content=?,featured_image=?,published_at=? WHERE id=?',
+    [title, category, excerpt, content || '', featured_image || '', published_at, c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM blogs WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM blogs WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

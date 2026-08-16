@@ -3,14 +3,14 @@
    Used by both POST /api/coupons/validate (live feedback at checkout) and
    order creation (authoritative server-side re-validation).
    ========================================================================== */
-import { getDb } from '../db/database.js'
+import { get } from '../db/database.js'
 
 export function normalizeCode(code) {
   return String(code || '').trim().toUpperCase()
 }
 
-export function findCoupon(code) {
-  return getDb().prepare('SELECT * FROM coupons WHERE code = ?').get(normalizeCode(code)) || null
+export async function findCoupon(code) {
+  return (await get('SELECT * FROM coupons WHERE code = ?', [normalizeCode(code)])) || null
 }
 
 /**
@@ -50,8 +50,8 @@ export function computeDiscount(coupon, amount) {
  * Validate a code for a given amount. Returns the coupon when valid.
  * @returns {{ valid: boolean, discount: number, message?: string, coupon?: object }}
  */
-export function validateCouponForAmount(code, amount) {
-  const coupon = findCoupon(code)
+export async function validateCouponForAmount(code, amount) {
+  const coupon = await findCoupon(code)
   if (!coupon) return { valid: false, discount: 0, message: 'That coupon code was not found.' }
   const { discount, message } = computeDiscount(coupon, amount)
   if (discount <= 0) return { valid: false, discount: 0, message: message || 'This coupon cannot be used.' }

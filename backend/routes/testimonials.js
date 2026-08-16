@@ -1,6 +1,6 @@
 /* routes/testimonials.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, ErrorSchema, SuccessSchema, TestimonialInput, TestimonialSchema } from './schemas.js'
 
@@ -52,19 +52,19 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM testimonials WHERE is_approved=1 ORDER BY id').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM testimonials WHERE is_approved=1 ORDER BY id'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { client_name, role_location, rating, message } = c.req.valid('json')
-  const r = getDb().prepare('INSERT INTO testimonials (client_name,role_location,rating,message) VALUES (?,?,?,?)')
-    .run(client_name, role_location, rating, message)
+  const r = await run('INSERT INTO testimonials (client_name,role_location,rating,message) VALUES (?,?,?,?)',
+    [client_name, role_location, rating, message])
   return c.json({ id: r.lastInsertRowid, client_name, role_location, rating, message })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('UPDATE testimonials SET is_approved=0 WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('UPDATE testimonials SET is_approved=0 WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

@@ -4,7 +4,7 @@
    reference a category by NAME (product.category stays a plain string).
    ========================================================================== */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, ErrorSchema, SuccessSchema } from './schemas.js'
 
@@ -63,42 +63,39 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  const db = getDb()
-  const rows = db.prepare(`
+router.openapi(listRoute, async (c) => {
+  const rows = await query(`
     SELECT c.id, c.name, c.parent_id, c.created_at,
       (SELECT COUNT(*) FROM products p WHERE p.category = c.name) AS product_count
     FROM categories c
-    ORDER BY (c.parent_id IS NOT NULL), c.name COLLATE NOCASE
-  `).all()
+    ORDER BY (c.parent_id IS NOT NULL), LOWER(c.name)
+  `)
   return c.json(rows)
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const v = c.req.valid('json')
-  const db = getDb()
   const name = v.name.trim()
   if (!name) return c.json({ error: 'Category name is required' }, 400)
-  if (db.prepare('SELECT id FROM categories WHERE name = ? COLLATE NOCASE').get(name)) {
+  if (await get('SELECT id FROM categories WHERE LOWER(name) = LOWER(?)', [name])) {
     return c.json({ error: `A category named "${name}" already exists` }, 400)
   }
   if (v.parent_id) {
-    const parent = db.prepare('SELECT id FROM categories WHERE id = ?').get(v.parent_id)
+    const parent = await get('SELECT id FROM categories WHERE id = ?', [v.parent_id])
     if (!parent) return c.json({ error: 'Parent category not found' }, 400)
   }
-  const r = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, ?)').run(name, v.parent_id || null)
-  return c.json(db.prepare('SELECT id, name, parent_id, created_at FROM categories WHERE id = ?').get(r.lastInsertRowid))
+  const r = await run('INSERT INTO categories (name, parent_id) VALUES (?, ?)', [name, v.parent_id || null])
+  return c.json(await get('SELECT id, name, parent_id, created_at FROM categories WHERE id = ?', [r.lastInsertRowid]))
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  const db = getDb()
+router.openapi(deleteRouteDef, async (c) => {
   const id = Number(c.req.param('id'))
-  if (!db.prepare('SELECT id FROM categories WHERE id = ?').get(id)) {
+  if (!(await get('SELECT id FROM categories WHERE id = ?', [id]))) {
     return c.json({ error: 'Category not found' }, 400)
   }
   // Remove sub-categories first (products keep their category label string).
-  db.prepare('DELETE FROM categories WHERE parent_id = ?').run(id)
-  db.prepare('DELETE FROM categories WHERE id = ?').run(id)
+  await run('DELETE FROM categories WHERE parent_id = ?', [id])
+  await run('DELETE FROM categories WHERE id = ?', [id])
   return c.json({ success: true })
 })
 

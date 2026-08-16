@@ -8,7 +8,7 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware, customerAuthMiddleware } from '../middleware/auth.js'
 import {
   createApp, CustomerAuthResponse, CustomerLoginInput, CustomerPasswordInput,
@@ -180,19 +180,18 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  const db = getDb()
-  const users = db.prepare(`
+router.openapi(listRoute, async (c) => {
+  const users = await query(`
     SELECT u.id, u.name, u.email, u.phone, u.photo_url, u.age, u.zodiac_sign, u.created_at
     FROM users u ORDER BY u.created_at DESC
-  `).all()
-  const orders = db.prepare('SELECT * FROM orders').all()
-  const items = db.prepare('SELECT * FROM order_items').all()
-  const bookings = db.prepare(`
+  `)
+  const orders = await query('SELECT * FROM orders')
+  const items = await query('SELECT * FROM order_items')
+  const bookings = await query(`
     SELECT b.id, b.client_name, b.phone, b.email, b.service, b.booking_date,
            b.time_slot, b.status, b.created_at, c.name AS chamber_name
     FROM bookings b LEFT JOIN chambers c ON b.chamber_id = c.id
-  `).all()
+  `)
 
   return c.json(users.map((u) => {
     const usrOrders = orders
@@ -211,17 +210,16 @@ router.openapi(listRoute, (c) => {
   }))
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  const db = getDb()
+router.openapi(deleteRouteDef, async (c) => {
   const id = Number(c.req.param('id'))
-  const user = db.prepare('SELECT id FROM users WHERE id=?').get(id)
+  const user = await get('SELECT id FROM users WHERE id=?', [id])
   if (!user) return c.json({ error: 'Client not found' }, 404)
 
   /* Remove dependent rows first (orders reference the user via FK). */
-  db.prepare('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=?)').run(id)
-  db.prepare('DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id=?)').run(id)
-  db.prepare('DELETE FROM orders WHERE user_id=?').run(id)
-  db.prepare('DELETE FROM users WHERE id=?').run(id)
+  await run('DELETE FROM order_items WHERE order_id IN (SELECT id FROM orders WHERE user_id=?)', [id])
+  await run('DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id=?)', [id])
+  await run('DELETE FROM orders WHERE user_id=?', [id])
+  await run('DELETE FROM users WHERE id=?', [id])
   return c.json({ success: true })
 })
 
@@ -235,16 +233,15 @@ function publicUser(u) {
 
 router.openapi(registerRoute, async (c) => {
   const { name, email, phone, password } = c.req.valid('json')
-  const db = getDb()
 
-  const existing = db.prepare('SELECT id FROM users WHERE lower(email) = lower(?)').get(email)
+  const existing = await get('SELECT id FROM users WHERE lower(email) = lower(?)', [email])
   if (existing) return c.json({ error: 'An account with this email already exists' }, 400)
 
   const hash = bcrypt.hashSync(password, 10)
-  const r = db.prepare('INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)')
-    .run(name, email.toLowerCase(), phone || '', hash)
+  const r = await run('INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)',
+    [name, email.toLowerCase(), phone || '', hash])
 
-  const user = publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(r.lastInsertRowid))
+  const user = publicUser(await get('SELECT * FROM users WHERE id = ?', [r.lastInsertRowid]))
   const token = jwt.sign(
     { id: user.id, email: user.email, name: user.name, role: 'customer' },
     JWT_SECRET,
@@ -255,8 +252,7 @@ router.openapi(registerRoute, async (c) => {
 
 router.openapi(loginRoute, async (c) => {
   const { email, password } = c.req.valid('json')
-  const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE lower(email) = lower(?)').get(email)
+  const user = await get('SELECT * FROM users WHERE lower(email) = lower(?)', [email])
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return c.json({ error: 'Invalid email or password' }, 401)
   }
@@ -268,17 +264,16 @@ router.openapi(loginRoute, async (c) => {
   return c.json({ token, user: publicUser(user) })
 })
 
-router.openapi(meRoute, (c) => {
+router.openapi(meRoute, async (c) => {
   const { id } = c.get('user')
-  const user = getDb().prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const user = await get('SELECT * FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
   return c.json(publicUser(user))
 })
 
-router.openapi(updateRoute, (c) => {
+router.openapi(updateRoute, async (c) => {
   const { id } = c.get('user')
-  const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const user = await get('SELECT * FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { name, phone, age, zodiac_sign } = c.req.valid('json')
@@ -288,16 +283,15 @@ router.openapi(updateRoute, (c) => {
     age: age === undefined ? user.age : age,
     zodiac_sign: zodiac_sign === undefined ? user.zodiac_sign : zodiac_sign,
   }
-  db.prepare('UPDATE users SET name=?, phone=?, age=?, zodiac_sign=? WHERE id=?')
-    .run(next.name, next.phone, next.age, next.zodiac_sign, id)
+  await run('UPDATE users SET name=?, phone=?, age=?, zodiac_sign=? WHERE id=?',
+    [next.name, next.phone, next.age, next.zodiac_sign, id])
 
-  return c.json(publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)))
+  return c.json(publicUser(await get('SELECT * FROM users WHERE id = ?', [id])))
 })
 
 router.openapi(photoRoute, async (c) => {
   const { id } = c.get('user')
-  const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const user = await get('SELECT * FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { photo } = c.req.valid('form')
@@ -307,45 +301,41 @@ router.openapi(photoRoute, async (c) => {
 
   const filename = safeFilename(photo.name)
   writeFileSync(path.join(uploadDir, filename), Buffer.from(await photo.arrayBuffer()))
-  db.prepare('UPDATE users SET photo_url=? WHERE id=?').run(`/uploads/${filename}`, id)
+  await run('UPDATE users SET photo_url=? WHERE id=?', [`/uploads/${filename}`, id])
 
-  return c.json(publicUser(db.prepare('SELECT * FROM users WHERE id = ?').get(id)))
+  return c.json(publicUser(await get('SELECT * FROM users WHERE id = ?', [id])))
 })
 
-router.openapi(passwordRoute, (c) => {
+router.openapi(passwordRoute, async (c) => {
   const { id } = c.get('user')
-  const db = getDb()
-  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const user = await get('SELECT * FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { current_password, new_password } = c.req.valid('json')
   if (!bcrypt.compareSync(current_password, user.password_hash)) {
     return c.json({ error: 'Current password is incorrect' }, 400)
   }
-  db.prepare('UPDATE users SET password_hash=? WHERE id=?')
-    .run(bcrypt.hashSync(new_password, 10), id)
+  await run('UPDATE users SET password_hash=? WHERE id=?', [bcrypt.hashSync(new_password, 10), id])
   return c.json({ success: true })
 })
 
-router.openapi(bookingsRoute, (c) => {
+router.openapi(bookingsRoute, async (c) => {
   const { id } = c.get('user')
-  const user = getDb().prepare('SELECT * FROM users WHERE id = ?').get(id)
+  const user = await get('SELECT * FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const phone = (user.phone || '').trim()
   const email = (user.email || '').trim().toLowerCase()
   return c.json(
-    getDb()
-      .prepare(`
-        SELECT b.id, b.client_name, b.service, b.booking_date, b.time_slot,
-               b.status, b.created_at, c.name AS chamber_name
-        FROM bookings b
-        LEFT JOIN chambers c ON b.chamber_id = c.id
-        WHERE (b.email != '' AND lower(b.email) = ?)
-           OR (b.phone != '' AND b.phone = ?)
-        ORDER BY b.booking_date DESC, b.time_slot DESC
-      `)
-      .all(email, phone),
+    await query(`
+      SELECT b.id, b.client_name, b.service, b.booking_date, b.time_slot,
+             b.status, b.created_at, c.name AS chamber_name
+      FROM bookings b
+      LEFT JOIN chambers c ON b.chamber_id = c.id
+      WHERE (b.email != '' AND lower(b.email) = ?)
+         OR (b.phone != '' AND b.phone = ?)
+      ORDER BY b.booking_date DESC, b.time_slot DESC
+    `, [email, phone]),
   )
 })
 

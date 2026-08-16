@@ -1,6 +1,6 @@
 /* routes/bookings.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import {
   BookingInput, BookingSchema, createApp, ErrorSchema, MessageSchema,
@@ -94,18 +94,15 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(slotsRoute, (c) => {
+router.openapi(slotsRoute, async (c) => {
   const { chamber_id, date } = c.req.valid('query')
-  const taken = getDb()
-    .prepare('SELECT time_slot FROM bookings WHERE chamber_id=? AND booking_date=? AND status != ?')
-    .all(chamber_id, date, 'Cancelled')
+  const taken = (await query('SELECT time_slot FROM bookings WHERE chamber_id=? AND booking_date=? AND status != ?', [chamber_id, date, 'Cancelled']))
     .map((b) => b.time_slot)
   return c.json(['11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:30 PM', '4:30 PM', '5:30 PM', '6:30 PM']
     .map((s) => ({ slot: s, available: !taken.includes(s) })))
 })
 
-router.openapi(listRoute, (c) => {
-  const db = getDb()
+router.openapi(listRoute, async (c) => {
   const { date } = c.req.valid('query')
   let q = 'SELECT b.*, c.name as chamber_name FROM bookings b LEFT JOIN chambers c ON b.chamber_id=c.id'
   const params = []
@@ -114,35 +111,33 @@ router.openapi(listRoute, (c) => {
     params.push(date)
   }
   q += ' ORDER BY b.created_at DESC'
-  return c.json(db.prepare(q).all(...params))
+  return c.json(await query(q, params))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { client_name, phone, email, service, chamber_id, booking_date, time_slot, notes } = c.req.valid('json')
   if (!client_name || !phone || !service || !chamber_id || !booking_date || !time_slot) {
     return c.json({ error: 'Missing required fields' }, 400)
   }
-  const db = getDb()
-  const conflict = db
-    .prepare('SELECT id FROM bookings WHERE chamber_id=? AND booking_date=? AND time_slot=? AND status != ?')
-    .get(chamber_id, booking_date, time_slot, 'Cancelled')
+  const conflict = await get('SELECT id FROM bookings WHERE chamber_id=? AND booking_date=? AND time_slot=? AND status != ?',
+    [chamber_id, booking_date, time_slot, 'Cancelled'])
   if (conflict) return c.json({ error: 'Slot already taken' }, 409)
-  const r = db.prepare('INSERT INTO bookings (client_name,phone,email,service,chamber_id,booking_date,time_slot,notes) VALUES (?,?,?,?,?,?,?,?)')
-    .run(client_name, phone, email || '', service, chamber_id, booking_date, time_slot, notes || '')
+  const r = await run('INSERT INTO bookings (client_name,phone,email,service,chamber_id,booking_date,time_slot,notes) VALUES (?,?,?,?,?,?,?,?)',
+    [client_name, phone, email || '', service, chamber_id, booking_date, time_slot, notes || ''])
   return c.json({ id: r.lastInsertRowid, message: 'Booking confirmed' })
 })
 
-router.openapi(statusRoute, (c) => {
+router.openapi(statusRoute, async (c) => {
   const { status } = c.req.valid('json')
   if (!['Pending', 'Confirmed', 'Cancelled'].includes(status)) {
     return c.json({ error: 'Invalid status' }, 400)
   }
-  getDb().prepare('UPDATE bookings SET status=? WHERE id=?').run(status, c.req.param('id'))
+  await run('UPDATE bookings SET status=? WHERE id=?', [status, c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM bookings WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM bookings WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

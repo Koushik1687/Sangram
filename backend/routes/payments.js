@@ -3,7 +3,7 @@
    ========================================================================== */
 import { createRoute, z } from '@hono/zod-openapi'
 import { client, pg } from '../config/phonepe.js'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { sendOrderConfirmationEmail } from '../services/notifications.js'
 import { cancelOrder } from '../services/orders.js'
@@ -103,16 +103,15 @@ const PAID_STATES = ['PAYMENT_SUCCESS', 'COMPLETED', 'PAID', 'SUCCESS', 'AUTHORI
    send the customer a confirmation email — only once, on the transition. */
 async function handlePaidOrder(orderId) {
   if (!orderId) return
-  const db = getDb()
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId)
+  const order = await get('SELECT * FROM orders WHERE id = ?', [orderId])
   if (!order) return
 
   if (order.status !== 'PENDING') return // already paid/refunded — don't re-confirm or re-email
-  db.prepare("UPDATE orders SET status = 'PAID', updated_at = datetime('now') WHERE id = ? AND status = 'PENDING'").run(orderId)
+  await run("UPDATE orders SET status = 'PAID', updated_at = now() WHERE id = ? AND status = 'PENDING'", [orderId])
 
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId)
-  const payment = db.prepare('SELECT customer_email, customer_name FROM payments WHERE order_id = ? ORDER BY id DESC').get(orderId)
-  const user = db.prepare('SELECT email FROM users WHERE id = ?').get(order.user_id)
+  const items = await query('SELECT * FROM order_items WHERE order_id = ?', [orderId])
+  const payment = await get('SELECT customer_email, customer_name FROM payments WHERE order_id = ? ORDER BY id DESC', [orderId])
+  const user = await get('SELECT email FROM users WHERE id = ?', [order.user_id])
   const to = payment?.customer_email || user?.email || ''
 
   await sendOrderConfirmationEmail({
@@ -177,17 +176,16 @@ router.openapi(initiateRoute, async (c) => {
   }
 
   // Save payment in database
-  const db = getDb()
-  db.prepare(`
+  await run(`
     INSERT INTO payments (
       merchant_order_id, amount, status, customer_name, customer_phone,
       customer_email, booking_id, product_id, order_id, redirect_url
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     merchantOrderId, amount, pgStatus,
     customer_name || '', customer_phone || '', customer_email || '',
     booking_id || null, product_id || null, order_id || null, redirectUrl,
-  )
+  ])
 
   return c.json({
     merchant_order_id: merchantOrderId,
@@ -199,8 +197,7 @@ router.openapi(initiateRoute, async (c) => {
 
 router.openapi(statusRoute, async (c) => {
   const orderId = c.req.param('orderId')
-  const db = getDb()
-  const payment = db.prepare('SELECT * FROM payments WHERE merchant_order_id = ?').get(orderId)
+  const payment = await get('SELECT * FROM payments WHERE merchant_order_id = ?', [orderId])
 
   if (!payment) {
     return c.json({ error: 'Order not found' }, 404)
@@ -211,15 +208,15 @@ router.openapi(statusRoute, async (c) => {
     const statusResponse = await client.getOrderStatus(orderId)
     if (statusResponse) {
       const newStatus = statusResponse.state || statusResponse.status || payment.status
-      db.prepare(`
-        UPDATE payments SET status = ?, phonepe_transaction_id = ?, response_code = ?, updated_at = datetime('now')
+      await run(`
+        UPDATE payments SET status = ?, phonepe_transaction_id = ?, response_code = ?, updated_at = now()
         WHERE merchant_order_id = ?
-      `).run(
+      `, [
         newStatus,
         statusResponse.transactionId || payment.phonepe_transaction_id || '',
         statusResponse.code || '',
         orderId,
-      )
+      ])
       payment.status = newStatus
       if (PAID_STATES.includes(String(newStatus).toUpperCase())) {
         await handlePaidOrder(payment.order_id)
@@ -248,14 +245,13 @@ router.openapi(callbackRoute, async (c) => {
 
     const data = JSON.parse(bodyText || '{}')
     if (data.merchantOrderId) {
-      const db = getDb()
       const state = String(data.state || 'COMPLETED').toUpperCase()
-      db.prepare(`
-        UPDATE payments SET status = ?, response_code = ?, raw_response = ?, updated_at = datetime('now')
+      await run(`
+        UPDATE payments SET status = ?, response_code = ?, raw_response = ?, updated_at = now()
         WHERE merchant_order_id = ?
-      `).run(data.state || 'COMPLETED', data.code || 'SUCCESS', JSON.stringify(data), data.merchantOrderId)
+      `, [data.state || 'COMPLETED', data.code || 'SUCCESS', JSON.stringify(data), data.merchantOrderId])
       if (PAID_STATES.includes(state)) {
-        const payment = db.prepare('SELECT order_id FROM payments WHERE merchant_order_id = ?').get(data.merchantOrderId)
+        const payment = await get('SELECT order_id FROM payments WHERE merchant_order_id = ?', [data.merchantOrderId])
         if (payment) await handlePaidOrder(payment.order_id)
       }
     }
@@ -279,15 +275,14 @@ router.openapi(refundRouteDef, async (c) => {
 
     const refundResponse = await client.refund(refundRequest)
 
-    const db = getDb()
-    db.prepare(`
-      UPDATE payments SET status = 'REFUNDED', raw_response = ?, updated_at = datetime('now')
+    await run(`
+      UPDATE payments SET status = 'REFUNDED', raw_response = ?, updated_at = now()
       WHERE merchant_order_id = ?
-    `).run(JSON.stringify(refundResponse || {}), merchant_order_id)
+    `, [JSON.stringify(refundResponse || {}), merchant_order_id])
 
     // Refunded orders give the items back to stock
-    const payment = db.prepare('SELECT order_id FROM payments WHERE merchant_order_id = ?').get(merchant_order_id)
-    if (payment?.order_id) cancelOrder(payment.order_id, 'REFUNDED')
+    const payment = await get('SELECT order_id FROM payments WHERE merchant_order_id = ?', [merchant_order_id])
+    if (payment?.order_id) await cancelOrder(payment.order_id, 'REFUNDED')
 
     return c.json({ success: true, message: 'Refund initiated successfully', refundId: merchantRefundId })
   } catch (err) {
@@ -295,8 +290,8 @@ router.openapi(refundRouteDef, async (c) => {
   }
 })
 
-router.openapi(listRoute, (c) => {
-  const payments = getDb().prepare('SELECT * FROM payments ORDER BY created_at DESC').all()
+router.openapi(listRoute, async (c) => {
+  const payments = await query('SELECT * FROM payments ORDER BY created_at DESC')
   return c.json(payments)
 })
 

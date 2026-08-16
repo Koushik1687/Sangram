@@ -1,7 +1,7 @@
 {
   "name": "srisangram-backend",
   "version": "1.0.0",
-  "description": "Sree Sangram API — Hono + SQLite backend",
+  "description": "Sree Sangram API — Hono + Postgres (Neon) backend",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -13,6 +13,7 @@
     "@hono/node-server": "^1.14.0",
     "@hono/swagger-ui": "^0.6.1",
     "@hono/zod-openapi": "^1.5.3",
+    "@neondatabase/serverless": "^1.1.0",
     "@phonepe-pg/pg-sdk-node": "^2.0.6",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",

@@ -4,7 +4,7 @@
    value (NULL stock = unlimited, nothing to restore), and only once per
    order (a CANCELLED/REFUNDED order is never re-processed).
    ========================================================================== */
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { sendLowStockAlert } from './notifications.js'
 
 /* Resolve the alert threshold for a product: per-product value, else the global default. */
@@ -19,8 +19,7 @@ function alertThreshold(product) {
  * cleared again when stock is restored above the threshold.
  */
 export async function maybeSendLowStockAlert(productId) {
-  const db = getDb()
-  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(productId)
+  const product = await get('SELECT * FROM products WHERE id = ?', [productId])
   if (!product || product.stock == null) return
   const threshold = alertThreshold(product)
   if (threshold <= 0) return // alerts disabled for this product
@@ -28,25 +27,22 @@ export async function maybeSendLowStockAlert(productId) {
   if (stock > threshold) return
   if (Number(product.low_stock_alerted) === 1) return // already alerted for this drop
 
-  db.prepare('UPDATE products SET low_stock_alerted = 1 WHERE id = ?').run(productId)
+  await run('UPDATE products SET low_stock_alerted = 1 WHERE id = ?', [productId])
   await sendLowStockAlert({ product, stock, threshold })
 }
 
 /** Return the product quantities back to stock for an order. */
-export function restoreStock(orderId) {
-  const db = getDb()
-  const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId)
-  const stmt = db.prepare('UPDATE products SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL')
-  const resetFlag = db.prepare('UPDATE products SET low_stock_alerted = 0 WHERE id = ?')
+export async function restoreStock(orderId) {
+  const items = await query('SELECT product_id, quantity FROM order_items WHERE order_id = ?', [orderId])
   let restored = 0
   for (const it of items) {
     if (it.product_id == null) continue
-    const r = stmt.run(it.quantity, it.product_id)
+    const r = await run('UPDATE products SET stock = stock + ? WHERE id = ? AND stock IS NOT NULL', [it.quantity, it.product_id])
     restored += Number(r.changes || 0)
     // If stock is comfortably back above the threshold, allow a future alert
-    const p = db.prepare('SELECT stock, low_stock_threshold FROM products WHERE id = ?').get(it.product_id)
+    const p = await get('SELECT stock, low_stock_threshold FROM products WHERE id = ?', [it.product_id])
     if (p && p.stock != null && Number(p.stock) > alertThreshold(p)) {
-      resetFlag.run(it.product_id)
+      await run('UPDATE products SET low_stock_alerted = 0 WHERE id = ?', [it.product_id])
     }
   }
   return restored
@@ -59,14 +55,13 @@ export function restoreStock(orderId) {
  * @param {number|string} orderId
  * @param {'CANCELLED'|'REFUNDED'} newStatus
  */
-export function cancelOrder(orderId, newStatus = 'CANCELLED') {
+export async function cancelOrder(orderId, newStatus = 'CANCELLED') {
   if (!orderId) return false
-  const db = getDb()
-  const order = db.prepare('SELECT status FROM orders WHERE id = ?').get(orderId)
+  const order = await get('SELECT status FROM orders WHERE id = ?', [orderId])
   if (!order) return false
   if (!['PENDING', 'PAID'].includes(order.status)) return false
 
-  db.prepare("UPDATE orders SET status = ?, updated_at = datetime('now') WHERE id = ?").run(newStatus, orderId)
-  restoreStock(orderId)
+  await run('UPDATE orders SET status = ?, updated_at = now() WHERE id = ?', [newStatus, orderId])
+  await restoreStock(orderId)
   return true
 }

@@ -1,6 +1,6 @@
 /* routes/chambers.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { ChamberInput, ChamberSchema, createApp, ErrorSchema, SuccessSchema } from './schemas.js'
 
@@ -67,27 +67,26 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM chambers ORDER BY id').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM chambers ORDER BY id'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { name, address, consultation_days, timing, phone, map_url } = c.req.valid('json')
-  const db = getDb()
-  const r = db.prepare('INSERT INTO chambers (name,address,consultation_days,timing,phone,map_url) VALUES (?,?,?,?,?,?)')
-    .run(name, address, consultation_days, timing, phone, map_url || '')
+  const r = await run('INSERT INTO chambers (name,address,consultation_days,timing,phone,map_url) VALUES (?,?,?,?,?,?)',
+    [name, address, consultation_days, timing, phone, map_url || ''])
   return c.json({ id: r.lastInsertRowid, name, address, consultation_days, timing, phone })
 })
 
-router.openapi(updateRouteDef, (c) => {
+router.openapi(updateRouteDef, async (c) => {
   const { name, address, consultation_days, timing, phone, map_url } = c.req.valid('json')
-  getDb().prepare('UPDATE chambers SET name=?,address=?,consultation_days=?,timing=?,phone=?,map_url=? WHERE id=?')
-    .run(name, address, consultation_days, timing, phone, map_url || '', c.req.param('id'))
+  await run('UPDATE chambers SET name=?,address=?,consultation_days=?,timing=?,phone=?,map_url=? WHERE id=?',
+    [name, address, consultation_days, timing, phone, map_url || '', c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM chambers WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM chambers WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

@@ -2,7 +2,7 @@
 import { createRoute, z } from '@hono/zod-openapi'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { getDb } from '../db/database.js'
+import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, ErrorSchema, GalleryInput, GalleryItemSchema, SuccessSchema } from './schemas.js'
 
@@ -58,8 +58,8 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM gallery ORDER BY uploaded_at DESC').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM gallery ORDER BY uploaded_at DESC'))
 })
 
 router.openapi(createRouteDef, async (c) => {
@@ -72,13 +72,12 @@ router.openapi(createRouteDef, async (c) => {
     imageUrl = `/uploads/${filename}`
   }
 
-  const r = getDb().prepare('INSERT INTO gallery (label,image_url,category) VALUES (?,?,?)')
-    .run(label, imageUrl, category || '')
+  const r = await run('INSERT INTO gallery (label,image_url,category) VALUES (?,?,?)', [label, imageUrl, category || ''])
   return c.json({ id: r.lastInsertRowid, label, image_url: imageUrl, category })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM gallery WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM gallery WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

@@ -4,7 +4,7 @@
 import { createRoute } from '@hono/zod-openapi'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-import { getDb } from '../db/database.js'
+import { get } from '../db/database.js'
 import { createApp, ErrorSchema, LoginInput, LoginResponse } from './schemas.js'
 
 const router = createApp()
@@ -28,8 +28,7 @@ router.openapi(loginRoute, async (c) => {
   const { username, password } = c.req.valid('json')
   if (!username || !password) return c.json({ error: 'Missing fields' }, 400)
 
-  const db = getDb()
-  const admin = db.prepare('SELECT * FROM admins WHERE username = ?').get(username)
+  const admin = await get('SELECT * FROM admins WHERE username = ?', [username])
   if (!admin || !bcrypt.compareSync(password, admin.password_hash)) {
     return c.json({ error: 'Invalid credentials' }, 401)
   }

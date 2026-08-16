@@ -5,7 +5,7 @@
    callback marks the order PAID.
    ========================================================================== */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware, customerAuthMiddleware } from '../middleware/auth.js'
 import { findCoupon, computeDiscount } from '../services/coupons.js'
 import { cancelOrder, maybeSendLowStockAlert } from '../services/orders.js'
@@ -91,28 +91,27 @@ const updateStatusRoute = createRoute({
   },
 })
 
-function withItems(order) {
-  const items = getDb().prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id)
+async function withItems(order) {
+  const items = await query('SELECT * FROM order_items WHERE order_id = ?', [order.id])
   return { ...order, items }
 }
 
-function nextOrderNumber(db) {
+async function nextOrderNumber() {
   const now = new Date()
   const ymd = now.toISOString().slice(0, 10).replace(/-/g, '')
-  const count = db.prepare("SELECT COUNT(*) AS c FROM orders WHERE order_number LIKE ?").get(`SS-${ymd}%`).c + 1
+  const count = Number((await get('SELECT COUNT(*) AS c FROM orders WHERE order_number LIKE ?', [`SS-${ymd}%`])).c) + 1
   return `SS-${ymd}-${String(count).padStart(4, '0')}`
 }
 
 router.openapi(createOrderRoute, async (c) => {
   const { items, address, coupon_code } = c.req.valid('json')
   const { id: userId } = c.get('user')
-  const db = getDb()
 
   // Resolve products, snapshot name + price, and enforce stock limits
   const resolved = []
   let subtotal = 0
   for (const it of items) {
-    const product = db.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1').get(it.product_id)
+    const product = await get('SELECT * FROM products WHERE id = ? AND is_active = 1', [it.product_id])
     if (!product) return c.json({ error: `Product ${it.product_id} is not available` }, 400)
     const qty = Math.max(1, Math.min(99, it.quantity || 1))
     const stock = product.stock == null ? null : Number(product.stock)
@@ -130,7 +129,7 @@ router.openapi(createOrderRoute, async (c) => {
   let discount = 0
   let appliedCode = null
   if (coupon_code) {
-    const coupon = findCoupon(coupon_code)
+    const coupon = await findCoupon(coupon_code)
     if (!coupon) return c.json({ error: 'That coupon code was not found.' }, 400)
     const { discount: d, message } = computeDiscount(coupon, subtotal)
     if (d <= 0) return c.json({ error: message || 'This coupon cannot be applied' }, 400)
@@ -142,59 +141,55 @@ router.openapi(createOrderRoute, async (c) => {
   const shippingFee = computeShippingFee(subtotal)
   const total = subtotal - discount + shippingFee
 
-  const orderNumber = nextOrderNumber(db)
-  const r = db.prepare('INSERT INTO orders (order_number, user_id, total, discount, coupon_code, shipping_fee, status, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-    .run(orderNumber, userId, total, discount, appliedCode, shippingFee, 'PENDING', address || '')
+  const orderNumber = await nextOrderNumber()
+  const r = await run('INSERT INTO orders (order_number, user_id, total, discount, coupon_code, shipping_fee, status, address) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [orderNumber, userId, total, discount, appliedCode, shippingFee, 'PENDING', address || ''])
   if (appliedCode) {
-    db.prepare('UPDATE coupons SET used_count = used_count + 1 WHERE code = ?').run(appliedCode)
+    await run('UPDATE coupons SET used_count = used_count + 1 WHERE code = ?', [appliedCode])
   }
 
-  const insertItem = db.prepare(
-    'INSERT INTO order_items (order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?)',
-  )
-  const decrementStock = db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?')
   for (const it of resolved) {
-    insertItem.run(r.lastInsertRowid, it.product_id, it.name, it.price, it.qty)
+    await run('INSERT INTO order_items (order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?)',
+      [r.lastInsertRowid, it.product_id, it.name, it.price, it.qty])
     if (it.stockTracked) {
-      decrementStock.run(it.qty, it.product_id)
+      await run('UPDATE products SET stock = stock - ? WHERE id = ?', [it.qty, it.product_id])
       await maybeSendLowStockAlert(it.product_id)
     }
   }
 
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(r.lastInsertRowid)
-  return c.json(withItems(order))
+  const order = await get('SELECT * FROM orders WHERE id = ?', [r.lastInsertRowid])
+  return c.json(await withItems(order))
 })
 
-router.openapi(listOrdersRoute, (c) => {
+router.openapi(listOrdersRoute, async (c) => {
   const { id: userId } = c.get('user')
-  const db = getDb()
-  const orders = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(userId)
-  return c.json(orders.map(withItems))
+  const orders = await query('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC', [userId])
+  return c.json(await Promise.all(orders.map(withItems)))
 })
 
 /* NOTE: /all must be registered before /{id} so Hono matches the static path. */
-router.openapi(listAllRoute, (c) => {
-  const db = getDb()
-  const orders = db.prepare(`
+router.openapi(listAllRoute, async (c) => {
+  const orders = await query(`
     SELECT o.*, u.name AS customer_name, u.email AS customer_email
     FROM orders o LEFT JOIN users u ON u.id = o.user_id
     ORDER BY o.id DESC
-  `).all()
-  const payStmt = db.prepare('SELECT merchant_order_id, amount FROM payments WHERE order_id = ? ORDER BY id DESC')
-  return c.json(orders.map((o) => ({ ...withItems(o), payment: payStmt.get(o.id) || null })))
+  `)
+  return c.json(await Promise.all(orders.map(async (o) => ({
+    ...(await withItems(o)),
+    payment: (await get('SELECT merchant_order_id, amount FROM payments WHERE order_id = ? ORDER BY id DESC', [o.id])) || null,
+  }))))
 })
 
-router.openapi(getOrderRoute, (c) => {
+router.openapi(getOrderRoute, async (c) => {
   const { id: userId } = c.get('user')
-  const db = getDb()
-  const order = db.prepare('SELECT * FROM orders WHERE id = ? AND user_id = ?').get(c.req.param('id'), userId)
+  const order = await get('SELECT * FROM orders WHERE id = ? AND user_id = ?', [c.req.param('id'), userId])
   if (!order) return c.json({ error: 'Order not found' }, 404)
-  return c.json(withItems(order))
+  return c.json(await withItems(order))
 })
 
-router.openapi(updateStatusRoute, (c) => {
+router.openapi(updateStatusRoute, async (c) => {
   const { status } = c.req.valid('json')
-  const ok = cancelOrder(c.req.param('id'), status)
+  const ok = await cancelOrder(c.req.param('id'), status)
   if (!ok) return c.json({ error: 'Order cannot be cancelled — it may already be finalised.' }, 400)
   return c.json({ success: true })
 })

@@ -10,9 +10,14 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createApp } from './routes/schemas.js'
 
-// Initialise DB immediately on startup
-const { getDb } = await import('./db/database.js')
-getDb()
+// Initialise Postgres (Neon) immediately on startup
+const { initDb } = await import('./db/database.js')
+try {
+  await initDb()
+} catch (err) {
+  console.error('❌  Database initialisation failed:', err.message || err)
+  process.exit(1)
+}
 
 import authRoutes from './routes/auth.js'
 import categoryRoutes from './routes/categories.js'

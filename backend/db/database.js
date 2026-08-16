@@ -1,69 +1,120 @@
 /* ==========================================================================
-   db/database.js — SQLite initialisation using Node.js built-in sqlite module
-   (available in Node >= 22.5.0 / Node 24).
+   db/database.js — Postgres (Neon) initialisation using @neondatabase/serverless.
+   The app reads its connection string from DATABASE_URL (e.g. the connection
+   string shown in the Neon dashboard: postgresql://user:pass@ep-...neon.tech/...).
    ========================================================================== */
 
-import { DatabaseSync } from 'node:sqlite';
-import bcrypt from 'bcryptjs';
-import path from 'node:path';
-import fs from 'node:fs';
+import { Pool } from '@neondatabase/serverless'
+import bcrypt from 'bcryptjs'
 
-const DB_PATH = path.join(import.meta.dirname, '..', 'srisangram.db');
+let pool
 
-let db;
-
-function getDb() {
-  if (!db) {
-    db = new DatabaseSync(DB_PATH);
-    db.exec('PRAGMA journal_mode = WAL');
-    db.exec('PRAGMA foreign_keys = ON');
-    initSchema();
-    seedData();
+function getPool() {
+  if (!pool) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) {
+      throw new Error(
+        'DATABASE_URL is not set. Add your Neon connection string to backend/.env, e.g.\n' +
+        'DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require',
+      )
+    }
+    pool = new Pool({ connectionString, max: 10 })
   }
-  return db;
+  return pool
 }
 
-function initSchema() {
-  db.exec(`
+/* Convert SQLite-style ? placeholders to Postgres $1, $2, ... */
+function toPg(sql, params = []) {
+  let i = 0
+  const text = String(sql).replace(/\?/g, () => `$${++i}`)
+  return { text, values: params }
+}
+
+/** Run a SELECT and return all rows. */
+export async function query(sql, params) {
+  const { text, values } = toPg(sql, params)
+  const res = await getPool().query(text, values)
+  return res.rows
+}
+
+/** Run a SELECT and return the first row (or null). */
+export async function get(sql, params) {
+  const rows = await query(sql, params)
+  return rows[0] ?? null
+}
+
+/**
+ * Run an INSERT/UPDATE/DELETE. Mirrors the old SQLite run() contract:
+ * returns { changes, lastInsertRowid } — lastInsertRowid comes from
+ * appending RETURNING id to INSERT statements.
+ */
+export async function run(sql, params) {
+  const isInsert = /^\s*INSERT\s/i.test(sql)
+  const { text, values } = toPg(isInsert ? `${sql} RETURNING id` : sql, params)
+  const res = await getPool().query(text, values)
+  return { changes: res.rowCount ?? 0, lastInsertRowid: res.rows?.[0]?.id ?? null }
+}
+
+/** Run a multi-statement DDL string (no parameters). */
+async function exec(sql) {
+  await getPool().query(sql)
+}
+
+let initPromise
+
+/** Create the pool, build the schema and seed demo data. Safe to call multiple times. */
+export function initDb() {
+  if (!initPromise) {
+    initPromise = (async () => {
+      getPool() // throws a helpful error when DATABASE_URL is missing
+      await initSchema()
+      await seedData()
+    })()
+  }
+  return initPromise
+}
+
+async function initSchema() {
+  await exec(`
     CREATE TABLE IF NOT EXISTS admins (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS products (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       category TEXT,
       price REAL NOT NULL,
       description TEXT,
       image_url TEXT,
       is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT UNIQUE NOT NULL,
       parent_id INTEGER,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TIMESTAMPTZ DEFAULT now(),
       FOREIGN KEY (parent_id) REFERENCES categories(id)
     );
 
     CREATE TABLE IF NOT EXISTS blogs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       category TEXT,
       excerpt TEXT,
       content TEXT,
       featured_image TEXT,
       published_at TEXT,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS chambers (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       address TEXT NOT NULL,
       consultation_days TEXT,
@@ -73,7 +124,7 @@ function initSchema() {
     );
 
     CREATE TABLE IF NOT EXISTS horoscope_custom (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       zodiac_sign TEXT NOT NULL,
       reading_date TEXT NOT NULL,
       message TEXT,
@@ -84,7 +135,7 @@ function initSchema() {
     );
 
     CREATE TABLE IF NOT EXISTS bookings (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       client_name TEXT NOT NULL,
       phone TEXT NOT NULL,
       email TEXT,
@@ -94,12 +145,12 @@ function initSchema() {
       time_slot TEXT NOT NULL,
       notes TEXT,
       status TEXT DEFAULT 'Pending',
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TIMESTAMPTZ DEFAULT now(),
       FOREIGN KEY (chamber_id) REFERENCES chambers(id)
     );
 
     CREATE TABLE IF NOT EXISTS testimonials (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       client_name TEXT NOT NULL,
       role_location TEXT,
       rating INTEGER,
@@ -108,25 +159,25 @@ function initSchema() {
     );
 
     CREATE TABLE IF NOT EXISTS gallery (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       label TEXT,
       image_url TEXT NOT NULL,
       category TEXT,
-      uploaded_at TEXT DEFAULT (datetime('now'))
+      uploaded_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS enquiries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       phone TEXT,
       email TEXT,
       message TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TIMESTAMPTZ DEFAULT now(),
       is_read INTEGER DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS payments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       merchant_order_id TEXT UNIQUE NOT NULL,
       amount REAL NOT NULL,
       status TEXT DEFAULT 'PENDING',
@@ -140,32 +191,32 @@ function initSchema() {
       response_code TEXT,
       redirect_url TEXT,
       raw_response TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now(),
+      updated_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT UNIQUE NOT NULL,
       phone TEXT,
       password_hash TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now()
     );
 
     CREATE TABLE IF NOT EXISTS orders (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       order_number TEXT UNIQUE NOT NULL,
       user_id INTEGER NOT NULL,
       total REAL NOT NULL,
       status TEXT DEFAULT 'PENDING',
       address TEXT,
-      created_at TEXT DEFAULT (datetime('now')),
+      created_at TIMESTAMPTZ DEFAULT now(),
       FOREIGN KEY (user_id) REFERENCES users(id)
     );
 
     CREATE TABLE IF NOT EXISTS order_items (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       order_id INTEGER NOT NULL,
       product_id INTEGER,
       product_name TEXT NOT NULL,
@@ -175,7 +226,7 @@ function initSchema() {
     );
 
     CREATE TABLE IF NOT EXISTS coupons (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       code TEXT UNIQUE NOT NULL,
       discount_type TEXT NOT NULL DEFAULT 'percent',
       discount_value REAL NOT NULL,
@@ -185,80 +236,45 @@ function initSchema() {
       usage_limit INTEGER DEFAULT 0,
       used_count INTEGER DEFAULT 0,
       is_active INTEGER DEFAULT 1,
-      created_at TEXT DEFAULT (datetime('now'))
+      created_at TIMESTAMPTZ DEFAULT now()
     );
-  `);
+  `)
 
-  // Migration: older databases may lack the payments.order_id column.
-  const paymentCols = db.prepare(`PRAGMA table_info(payments)`).all().map((c) => c.name)
-  if (!paymentCols.includes('order_id')) {
-    db.exec(`ALTER TABLE payments ADD COLUMN order_id INTEGER`)
-  }
-
-  // Migration: orders may lack the updated_at column used by the paid-state flow.
-  const orderCols = db.prepare(`PRAGMA table_info(orders)`).all().map((c) => c.name)
-  if (!orderCols.includes('updated_at')) {
-    db.exec(`ALTER TABLE orders ADD COLUMN updated_at TEXT`)
-  }
-
-  // Migration: orders may lack the coupon fields used by the discount flow.
-  if (!orderCols.includes('discount')) {
-    db.exec(`ALTER TABLE orders ADD COLUMN discount REAL DEFAULT 0`)
-  }
-  if (!orderCols.includes('coupon_code')) {
-    db.exec(`ALTER TABLE orders ADD COLUMN coupon_code TEXT`)
-  }
-
-  // Migration: orders may lack the shipping fee applied at checkout.
-  if (!orderCols.includes('shipping_fee')) {
-    db.exec(`ALTER TABLE orders ADD COLUMN shipping_fee REAL DEFAULT 0`)
-  }
-
-  // Migration: users may lack the client-profile fields used by the account page.
-  const userCols = db.prepare(`PRAGMA table_info(users)`).all().map((c) => c.name)
-  if (!userCols.includes('photo_url')) {
-    db.exec(`ALTER TABLE users ADD COLUMN photo_url TEXT`)
-  }
-  if (!userCols.includes('age')) {
-    db.exec(`ALTER TABLE users ADD COLUMN age INTEGER`)
-  }
-  if (!userCols.includes('zodiac_sign')) {
-    db.exec(`ALTER TABLE users ADD COLUMN zodiac_sign TEXT`)
-  }
-
-  // Migration: products may lack the stock field (NULL = unlimited stock).
-  const productCols = db.prepare(`PRAGMA table_info(products)`).all().map((c) => c.name)
-  if (!productCols.includes('stock')) {
-    db.exec(`ALTER TABLE products ADD COLUMN stock INTEGER`)
-  }
-  if (!productCols.includes('low_stock_threshold')) {
-    db.exec(`ALTER TABLE products ADD COLUMN low_stock_threshold INTEGER`)
-  }
-  if (!productCols.includes('low_stock_alerted')) {
-    db.exec(`ALTER TABLE products ADD COLUMN low_stock_alerted INTEGER DEFAULT 0`)
-  }
+  // Migrations for databases created before a column existed (no-ops on fresh DBs).
+  await exec(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS order_id INTEGER`)
+  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`)
+  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount REAL DEFAULT 0`)
+  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT`)
+  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_fee REAL DEFAULT 0`)
+  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`)
+  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER`)
+  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zodiac_sign TEXT`)
+  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER`)
+  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER`)
+  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_alerted INTEGER DEFAULT 0`)
 }
 
-function seedData() {
+async function seedData() {
   // Admin user
-  const adminExists = db.prepare('SELECT id FROM admins WHERE username = ?').get('admin');
+  const adminExists = await get('SELECT id FROM admins WHERE username = ?', ['admin'])
   if (!adminExists) {
-    const hash = bcrypt.hashSync('admin123', 10);
-    db.prepare('INSERT INTO admins (username, password_hash) VALUES (?, ?)').run('admin', hash);
+    const hash = bcrypt.hashSync('admin123', 10)
+    await run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', ['admin', hash])
   }
 
   // Seed the shop taxonomy (top-level categories) on first run
-  const catCount = db.prepare('SELECT COUNT(*) AS n FROM categories').get().n
+  const catCount = Number((await get('SELECT COUNT(*) AS n FROM categories')).n)
   if (catCount === 0) {
-    const insertCat = db.prepare('INSERT INTO categories (name) VALUES (?)')
-    for (const name of ['Crystals', 'Vastu Items', 'Aura Cleansing Salt', 'Gemstones']) insertCat.run(name)
+    for (const name of ['Crystals', 'Vastu Items', 'Aura Cleansing Salt', 'Gemstones']) {
+      await run('INSERT INTO categories (name) VALUES (?)', [name])
+    }
   }
 
   // Re-categorise legacy products into the shop taxonomy so the filters work
-  db.prepare("UPDATE products SET category='Gemstones' WHERE category IN ('Gemstone','Gem stone')").run()
-  db.prepare("UPDATE products SET category='Vastu Items' WHERE category IN ('Vastu','Yantra')").run()
-  db.prepare("UPDATE products SET category='Crystals' WHERE category IN ('Spiritual','Crystal')").run()
-  db.prepare("UPDATE products SET category='Aura Cleansing Salt' WHERE category IN ('Salt','Aura Salt')").run()
+  await run("UPDATE products SET category='Gemstones' WHERE category IN ('Gemstone','Gem stone')")
+  await run("UPDATE products SET category='Vastu Items' WHERE category IN ('Vastu','Yantra')")
+  await run("UPDATE products SET category='Crystals' WHERE category IN ('Spiritual','Crystal')")
+  await run("UPDATE products SET category='Aura Cleansing Salt' WHERE category IN ('Salt','Aura Salt')")
 
   // Shop catalogue — one row per product across the four filter categories
   const CATALOGUE = [
@@ -288,72 +304,67 @@ function seedData() {
     ['Sea Salt Aura Spray', 'Aura Cleansing Salt', 599, 'A refreshing mist of sea salt and essential oils to cleanse your aura on the go.'],
   ]
 
-  const insert = db.prepare('INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)')
-  const existingNames = new Set(db.prepare('SELECT name FROM products').all().map((r) => r.name))
+  const existingNames = new Set((await query('SELECT name FROM products')).map((r) => r.name))
   for (const [name, category, price, desc] of CATALOGUE) {
-    if (!existingNames.has(name)) insert.run(name, category, price, desc)
+    if (!existingNames.has(name)) {
+      await run('INSERT INTO products (name, category, price, description) VALUES (?, ?, ?, ?)', [name, category, price, desc])
+    }
   }
 
   // Personal Kundali Report is a service, not a physical item — remove from shop
-  db.prepare("DELETE FROM products WHERE name='Personal Kundali Report'").run()
+  await run("DELETE FROM products WHERE name='Personal Kundali Report'")
 
   // Demo coupon so the discount flow can be tried immediately
-  const couponExists = db.prepare('SELECT id FROM coupons WHERE code = ?').get('WELCOME10')
+  const couponExists = await get('SELECT id FROM coupons WHERE code = ?', ['WELCOME10'])
   if (!couponExists) {
-    db.prepare(`
+    await run(`
       INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount, valid_until, usage_limit)
       VALUES ('WELCOME10', 'percent', 10, 500, 500, '2027-12-31', 0)
-    `).run()
+    `)
   }
 
   // Blogs
-  const { c: blogCount } = db.prepare('SELECT COUNT(*) as c FROM blogs').get();
+  const blogCount = Number((await get('SELECT COUNT(*) AS c FROM blogs')).c)
   if (blogCount === 0) {
-    const insert = db.prepare('INSERT INTO blogs (title, category, excerpt, published_at) VALUES (?, ?, ?, ?)');
-    [
-      ['Saturn Sade Sati: Fear is not the answer, preparation is', 'Astrology', "A practical guide to common myths and remedies related to Saturn's sade sati cycle.", '2026-07-18'],
-      ['The real impact of Rahu and Ketu in kundali', 'Kundli', 'An in-depth explanation of how Rahu and Ketu influence key life areas.', '2026-07-05'],
-      ['Why planetary matching matters in marriage', 'Marriage', 'A thoughtful discussion on Ashtakoot matching and its relevance in modern life.', '2026-06-22'],
-    ].forEach(b => insert.run(...b));
+    const insert = (title, category, excerpt, published_at) =>
+      run('INSERT INTO blogs (title, category, excerpt, published_at) VALUES (?, ?, ?, ?)', [title, category, excerpt, published_at])
+    await insert('Saturn Sade Sati: Fear is not the answer, preparation is', 'Astrology', "A practical guide to common myths and remedies related to Saturn's sade sati cycle.", '2026-07-18')
+    await insert('The real impact of Rahu and Ketu in kundali', 'Kundli', 'An in-depth explanation of how Rahu and Ketu influence key life areas.', '2026-07-05')
+    await insert('Why planetary matching matters in marriage', 'Marriage', 'A thoughtful discussion on Ashtakoot matching and its relevance in modern life.', '2026-06-22')
   }
 
   // Chambers
-  const { c: chamberCount } = db.prepare('SELECT COUNT(*) as c FROM chambers').get();
+  const chamberCount = Number((await get('SELECT COUNT(*) AS c FROM chambers')).c)
   if (chamberCount === 0) {
-    const insert = db.prepare('INSERT INTO chambers (name, address, consultation_days, timing, phone) VALUES (?, ?, ?, ?, ?)');
-    [
-      ['Kolkata Main Chamber', 'Gariahat Road, Kolkata - 700019', 'Mon – Sat', '11:00 AM – 7:00 PM', '+91 98300 00000'],
-      ['Salt Lake Chamber', 'Sector 5, Salt Lake, Kolkata - 700091', 'Tue, Thu, Sat', '12:00 PM – 6:00 PM', '+91 98300 11111'],
-      ['Howrah Chamber', 'GT Road, Howrah - 711101', 'Wed, Sun', '10:00 AM – 2:00 PM', '+91 98300 22222'],
-    ].forEach(c => insert.run(...c));
+    const insert = (name, address, consultation_days, timing, phone) =>
+      run('INSERT INTO chambers (name, address, consultation_days, timing, phone) VALUES (?, ?, ?, ?, ?)', [name, address, consultation_days, timing, phone])
+    await insert('Kolkata Main Chamber', 'Gariahat Road, Kolkata - 700019', 'Mon – Sat', '11:00 AM – 7:00 PM', '+91 98300 00000')
+    await insert('Salt Lake Chamber', 'Sector 5, Salt Lake, Kolkata - 700091', 'Tue, Thu, Sat', '12:00 PM – 6:00 PM', '+91 98300 11111')
+    await insert('Howrah Chamber', 'GT Road, Howrah - 711101', 'Wed, Sun', '10:00 AM – 2:00 PM', '+91 98300 22222')
   }
 
   // Testimonials
-  const { c: testiCount } = db.prepare('SELECT COUNT(*) as c FROM testimonials').get();
+  const testiCount = Number((await get('SELECT COUNT(*) AS c FROM testimonials')).c)
   if (testiCount === 0) {
-    const insert = db.prepare('INSERT INTO testimonials (client_name, role_location, rating, message) VALUES (?, ?, ?, ?)');
-    [
-      ['Sumita Banerjee', 'Kolkata', 5, 'The guidance from Sri Sangram brought a remarkable shift in my career. The analysis was precise, thoughtful, and deeply reassuring.'],
-      ['Arijit Das', 'Durgapur', 5, 'The kundali analysis was extremely detailed and accurate, and each prediction matched reality. I am deeply grateful.'],
-      ['Piyali Sengupta', 'Siliguri', 5, 'I came for marriage guidance, and the insight and suggestions helped our family find direction and peace.'],
-    ].forEach(t => insert.run(...t));
+    const insert = (client_name, role_location, rating, message) =>
+      run('INSERT INTO testimonials (client_name, role_location, rating, message) VALUES (?, ?, ?, ?)', [client_name, role_location, rating, message])
+    await insert('Sumita Banerjee', 'Kolkata', 5, 'The guidance from Sri Sangram brought a remarkable shift in my career. The analysis was precise, thoughtful, and deeply reassuring.')
+    await insert('Arijit Das', 'Durgapur', 5, 'The kundali analysis was extremely detailed and accurate, and each prediction matched reality. I am deeply grateful.')
+    await insert('Piyali Sengupta', 'Siliguri', 5, 'I came for marriage guidance, and the insight and suggestions helped our family find direction and peace.')
   }
 
   // Gallery
-  const { c: galleryCount } = db.prepare('SELECT COUNT(*) as c FROM gallery').get();
+  const galleryCount = Number((await get('SELECT COUNT(*) AS c FROM gallery')).c)
   if (galleryCount === 0) {
-    const insert = db.prepare('INSERT INTO gallery (label, image_url, category) VALUES (?, ?, ?)');
-    [
-      ['Seminar 2026', '/uploads/placeholder.jpg', 'Events'],
-      ['Temple Visit', '/uploads/placeholder.jpg', 'Events'],
-      ['Client Session', '/uploads/placeholder.jpg', 'Work'],
-      ['Certificate', '/uploads/placeholder.jpg', 'Awards'],
-      ['Workshop', '/uploads/placeholder.jpg', 'Events'],
-      ['Award Ceremony', '/uploads/placeholder.jpg', 'Awards'],
-      ['Media Interview', '/uploads/placeholder.jpg', 'Media'],
-      ['Annual Puja', '/uploads/placeholder.jpg', 'Events'],
-    ].forEach(g => insert.run(...g));
+    const insert = (label, image_url, category) =>
+      run('INSERT INTO gallery (label, image_url, category) VALUES (?, ?, ?)', [label, image_url, category])
+    await insert('Seminar 2026', '/uploads/placeholder.jpg', 'Events')
+    await insert('Temple Visit', '/uploads/placeholder.jpg', 'Events')
+    await insert('Client Session', '/uploads/placeholder.jpg', 'Work')
+    await insert('Certificate', '/uploads/placeholder.jpg', 'Awards')
+    await insert('Workshop', '/uploads/placeholder.jpg', 'Events')
+    await insert('Award Ceremony', '/uploads/placeholder.jpg', 'Awards')
+    await insert('Media Interview', '/uploads/placeholder.jpg', 'Media')
+    await insert('Annual Puja', '/uploads/placeholder.jpg', 'Events')
   }
 }
-
-export { getDb };

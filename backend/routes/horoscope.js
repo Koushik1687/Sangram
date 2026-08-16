@@ -1,6 +1,6 @@
 /* routes/horoscope.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, ErrorSchema, HoroscopeOverrideInput, HoroscopeOverrideSchema, SuccessSchema } from './schemas.js'
 
@@ -40,19 +40,18 @@ const updateRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
+router.openapi(listRoute, async (c) => {
   const { date } = c.req.valid('query')
   const d = date || new Date().toISOString().slice(0, 10)
-  return c.json(getDb().prepare('SELECT * FROM horoscope_custom WHERE reading_date=?').all(d))
+  return c.json(await query('SELECT * FROM horoscope_custom WHERE reading_date=?', [d]))
 })
 
-router.openapi(updateRouteDef, (c) => {
+router.openapi(updateRouteDef, async (c) => {
   const { reading_date, message, lucky_color, lucky_number, mood } = c.req.valid('json')
-  const db = getDb()
-  db.prepare(`INSERT INTO horoscope_custom (zodiac_sign,reading_date,message,lucky_color,lucky_number,mood)
+  await run(`INSERT INTO horoscope_custom (zodiac_sign,reading_date,message,lucky_color,lucky_number,mood)
     VALUES (?,?,?,?,?,?)
-    ON CONFLICT(zodiac_sign,reading_date) DO UPDATE SET message=excluded.message,lucky_color=excluded.lucky_color,lucky_number=excluded.lucky_number,mood=excluded.mood`)
-    .run(c.req.param('sign'), reading_date, message, lucky_color, lucky_number, mood)
+    ON CONFLICT(zodiac_sign,reading_date) DO UPDATE SET message=excluded.message,lucky_color=excluded.lucky_color,lucky_number=excluded.lucky_number,mood=excluded.mood`,
+    [c.req.param('sign'), reading_date, message, lucky_color, lucky_number, mood])
   return c.json({ success: true })
 })
 

@@ -1,6 +1,6 @@
 /* routes/enquiries.js */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { createApp, EnquiryInput, EnquirySchema, ErrorSchema, MessageSchema, SuccessSchema } from './schemas.js'
 
@@ -68,25 +68,24 @@ const deleteRouteDef = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM enquiries ORDER BY created_at DESC').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM enquiries ORDER BY created_at DESC'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const { name, phone, email, message } = c.req.valid('json')
   if (!name || !message) return c.json({ error: 'Name and message required' }, 400)
-  const r = getDb().prepare('INSERT INTO enquiries (name,phone,email,message) VALUES (?,?,?,?)')
-    .run(name, phone || '', email || '', message)
+  const r = await run('INSERT INTO enquiries (name,phone,email,message) VALUES (?,?,?,?)', [name, phone || '', email || '', message])
   return c.json({ id: r.lastInsertRowid, message: 'Enquiry received' })
 })
 
-router.openapi(readRoute, (c) => {
-  getDb().prepare('UPDATE enquiries SET is_read=1 WHERE id=?').run(c.req.param('id'))
+router.openapi(readRoute, async (c) => {
+  await run('UPDATE enquiries SET is_read=1 WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM enquiries WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM enquiries WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 

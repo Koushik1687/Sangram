@@ -2,7 +2,7 @@
    routes/coupons.js — coupon management (admin) + live validation (checkout).
    ========================================================================== */
 import { createRoute, z } from '@hono/zod-openapi'
-import { getDb } from '../db/database.js'
+import { get, query, run } from '../db/database.js'
 import { authMiddleware } from '../middleware/auth.js'
 import { normalizeCode, validateCouponForAmount } from '../services/coupons.js'
 import {
@@ -82,50 +82,48 @@ const validateRoute = createRoute({
   },
 })
 
-router.openapi(listRoute, (c) => {
-  return c.json(getDb().prepare('SELECT * FROM coupons ORDER BY id DESC').all())
+router.openapi(listRoute, async (c) => {
+  return c.json(await query('SELECT * FROM coupons ORDER BY id DESC'))
 })
 
-router.openapi(createRouteDef, (c) => {
+router.openapi(createRouteDef, async (c) => {
   const v = c.req.valid('json')
-  const db = getDb()
   const code = normalizeCode(v.code)
-  if (db.prepare('SELECT id FROM coupons WHERE code = ?').get(code)) {
+  if (await get('SELECT id FROM coupons WHERE code = ?', [code])) {
     return c.json({ error: 'A coupon with this code already exists' }, 400)
   }
-  const r = db.prepare(`
+  const r = await run(`
     INSERT INTO coupons (code, discount_type, discount_value, min_order_amount, max_discount, valid_until, usage_limit, is_active)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     code, v.discount_type, v.discount_value,
     v.min_order_amount || 0, v.max_discount || null, v.valid_until || null,
     v.usage_limit || 0, v.is_active ?? 1,
-  )
-  return c.json(db.prepare('SELECT * FROM coupons WHERE id = ?').get(r.lastInsertRowid))
+  ])
+  return c.json(await get('SELECT * FROM coupons WHERE id = ?', [r.lastInsertRowid]))
 })
 
-router.openapi(updateRouteDef, (c) => {
+router.openapi(updateRouteDef, async (c) => {
   const v = c.req.valid('json')
-  const db = getDb()
-  db.prepare(`
+  await run(`
     UPDATE coupons SET code=?, discount_type=?, discount_value=?, min_order_amount=?,
       max_discount=?, valid_until=?, usage_limit=?, is_active=? WHERE id=?
-  `).run(
+  `, [
     normalizeCode(v.code), v.discount_type, v.discount_value,
     v.min_order_amount || 0, v.max_discount || null, v.valid_until || null,
     v.usage_limit || 0, v.is_active ?? 1, c.req.param('id'),
-  )
+  ])
   return c.json({ success: true })
 })
 
-router.openapi(deleteRouteDef, (c) => {
-  getDb().prepare('DELETE FROM coupons WHERE id=?').run(c.req.param('id'))
+router.openapi(deleteRouteDef, async (c) => {
+  await run('DELETE FROM coupons WHERE id=?', [c.req.param('id')])
   return c.json({ success: true })
 })
 
-router.openapi(validateRoute, (c) => {
+router.openapi(validateRoute, async (c) => {
   const { code, amount } = c.req.valid('json')
-  const result = validateCouponForAmount(code, amount)
+  const result = await validateCouponForAmount(code, amount)
   if (result.valid) {
     return c.json({
       valid: true,
