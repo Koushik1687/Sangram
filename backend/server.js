@@ -9,15 +9,7 @@ import { swaggerUI } from '@hono/swagger-ui'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createApp } from './routes/schemas.js'
-
-// Initialise Postgres (Neon). On Vercel (serverless/Fluid) a crash here would
-// turn every /api call into FUNCTION_INVOCATION_FAILED, so a DB failure is
-// logged but never fatal — the handler stays up and initDb() retries on the
-// next call (see db/database.js).
-const { initDb } = await import('./db/database.js')
-initDb().catch((err) => {
-  console.error('⚠️  Database initialisation failed — API will retry:', err.message || err)
-})
+import { initDb } from './db/database.js'
 
 import authRoutes from './routes/auth.js'
 import categoryRoutes from './routes/categories.js'
@@ -42,6 +34,24 @@ const app = createApp()
 const PORT = process.env.PORT || 3001
 
 // --- Middleware ---
+
+/* Postgres (Neon) is initialised lazily — never at module load. On Vercel
+   (serverless/Fluid) the runtime waits on any I/O started while the module
+   loads, so opening the Neon WebSocket there hung every /api call forever.
+   initDb() is also non-fatal and retryable: a DB failure returns a fast 503
+   and the next request tries again (see db/database.js). */
+app.use('/api/*', async (c, next) => {
+  const p = c.req.path
+  if (p === '/api/health' || p === '/api/spec' || p === '/api/docs') return next()
+  try {
+    await initDb()
+  } catch (err) {
+    console.error('⚠️  Database unavailable — API will retry:', err.message || err)
+    return c.json({ error: 'Service temporarily unavailable', detail: err.message || String(err) }, 503)
+  }
+  await next()
+})
+
 app.use('*', cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:4173'],
   credentials: true,
@@ -106,8 +116,9 @@ app.onError((err, c) => {
    with `node server.js` this export is simply ignored. */
 export default app.fetch
 
-// Only start the HTTP server when run directly (not when imported by tools)
-const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+// Only start the HTTP server when run directly (not when imported by tools or
+// by Vercel's serverless runtime, which sets process.env.VERCEL).
+const isMain = !process.env.VERCEL && process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
 if (isMain) {
   /* Daily sales digest scheduler — fires once per day after DAILY_DIGEST_TIME
      (local time) and emails yesterday's summary to ADMIN_ALERT_EMAIL. */

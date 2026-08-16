@@ -40,7 +40,10 @@ function getPool() {
         'DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require',
       )
     }
-    pool = new Pool({ connectionString, max: 10 })
+    // connectionTimeoutMillis: pg defaults to 0 = wait forever. On a serverless
+    // runtime a hung TCP/WebSocket connect would block the function until the
+    // platform kills it, so fail fast and let initDb() retry on the next call.
+    pool = new Pool({ connectionString, max: 10, connectionTimeoutMillis: 10000 })
   }
   return pool
 }
