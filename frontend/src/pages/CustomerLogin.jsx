@@ -1,20 +1,20 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
-import { api } from '../lib/api'
+import { isGoogleConfigured, renderGoogleButton } from '../lib/google'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import StarField from '../components/StarField'
 
 /* ==========================================================================
    CustomerLogin — sign in / create account for the shop.
-   Every login AND signup now requires a one-time password (OTP) sent by
-   email via EmailJS. Flow:
-     1. Credentials form  → POST /users/otp/send   (email + purpose)
-     2. OTP step          → POST /users/otp/verify (returns a one-time token)
-     3. login/register    → POST /users/login | /users/register (consumes the
-                            token — the server refuses to log in / create an
-                            account without a freshly verified OTP)
+
+   · "Continue as Google" is the primary option — the backend verifies the
+     Google ID token (POST /api/users/google) and logs the customer in,
+     creating the account automatically on first use.
+   · Email + password is the fallback: POST /users/login (sign in) or
+     POST /users/register (create account).
+
    After success the user is sent back to ?next= (default /shop) so the
    buy-now → login → checkout flow never loses the customer.
    ========================================================================== */
@@ -34,52 +34,54 @@ const EyeOffIcon = () => (
   </svg>
 )
 
-const RESEND_WAIT = 30 // seconds before another code can be requested
-
 export default function CustomerLogin() {
-  const { login, register } = useAuth()
+  const { login, register, googleLogin } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
   const next = params.get('next') || '/shop'
   const productHint = params.get('product')
 
   const [mode, setMode] = useState('login')
-  const [step, setStep] = useState('form') // 'form' | 'otp'
-  const [draft, setDraft] = useState(null) // credentials awaiting OTP
   const [busy, setBusy] = useState(false)
-  const [verifying, setVerifying] = useState(false)
   const [error, setError] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
+  const googleBtnRef = useRef(null)
 
-  const [otpCode, setOtpCode] = useState('')
-  const [resendIn, setResendIn] = useState(0)
-  const [devOtp, setDevOtp] = useState('')
+  /* "Continue as Google" — the backend verifies the ID token and either logs
+     the customer in or creates the account (Google has verified the email). */
+  const handleGoogleCredential = useCallback(async (credential) => {
+    setBusy(true)
+    setError('')
+    try {
+      await googleLogin(credential)
+      navigate(next, { replace: true })
+    } catch (err) {
+      setError(err.message || 'Google sign-in failed. Please try again.')
+    } finally {
+      setBusy(false)
+    }
+  }, [googleLogin, navigate, next])
 
-  /* Countdown for the "Resend code" button */
+  /* Render the Google button on mount. */
   useEffect(() => {
-    if (step !== 'otp' || resendIn <= 0) return undefined
-    const t = setTimeout(() => setResendIn((s) => s - 1), 1000)
-    return () => clearTimeout(t)
-  }, [step, resendIn])
+    if (!isGoogleConfigured() || !googleBtnRef.current) return undefined
+    let cancelled = false
+    renderGoogleButton(googleBtnRef.current, async (credential) => {
+      if (cancelled || !credential) return
+      await handleGoogleCredential(credential)
+    }).catch((err) => {
+      if (!cancelled) setError(err.message || 'Google sign-in could not be loaded.')
+    })
+    return () => { cancelled = true }
+  }, [handleGoogleCredential])
 
   function switchMode(m) {
     setMode(m)
-    setStep('form')
-    setDraft(null)
-    setOtpCode('')
-    setDevOtp('')
     setError('')
   }
 
-  function backToForm() {
-    setStep('form')
-    setOtpCode('')
-    setDevOtp('')
-    setError('')
-  }
-
-  /* Step 1 — request an OTP for this email (login also validates the password). */
+  /* Sign in or create the account directly (no OTP). */
   async function submit(e) {
     e.preventDefault()
     setError('')
@@ -92,88 +94,22 @@ export default function CustomerLogin() {
 
     const email = f.get('email').trim().toLowerCase()
     const password = f.get('password')
-    const purpose = mode === 'login' ? 'login' : 'register'
 
     setBusy(true)
     try {
-      const res = await api.post('/users/otp/send', {
-        email,
-        purpose,
-        ...(purpose === 'login' ? { password } : {}),
-      }, { customer: true })
-
-      setDraft({
-        purpose,
-        email,
-        password,
-        name: f.get('name')?.trim(),
-        phone: f.get('phone')?.trim() || undefined,
-      })
-      setDevOtp(res.dev_otp || '')
-      setOtpCode('')
-      setResendIn(RESEND_WAIT)
-      setStep('otp')
-    } catch (err) {
-      setError(err.message || 'Could not send the OTP. Please try again.')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  /* Step 2 — verify the OTP, then complete login / signup with the one-time token. */
-  async function verifyOtp(code) {
-    if (!draft || verifying) return
-    setVerifying(true)
-    setError('')
-    try {
-      const res = await api.post('/users/otp/verify', {
-        email: draft.email,
-        code,
-        purpose: draft.purpose,
-      }, { customer: true })
-
-      if (draft.purpose === 'login') {
-        await login(draft.email, draft.password, res.token)
+      if (mode === 'login') {
+        await login(email, password)
       } else {
         await register({
-          name: draft.name,
-          email: draft.email,
-          phone: draft.phone,
-          password: draft.password,
-          otp_token: res.token,
+          name: f.get('name')?.trim(),
+          email,
+          phone: f.get('phone')?.trim() || undefined,
+          password,
         })
       }
       navigate(next, { replace: true })
     } catch (err) {
-      setError(err.message || 'Invalid or expired OTP. Please try again.')
-      setOtpCode('')
-    } finally {
-      setVerifying(false)
-    }
-  }
-
-  /* Auto-verify as soon as all 6 digits are entered (single-shot via onChange). */
-  function onOtpChange(value) {
-    const digits = value.replace(/\D/g, '').slice(0, 6)
-    setOtpCode(digits)
-    if (digits.length === 6) verifyOtp(digits)
-  }
-
-  async function resend() {
-    if (resendIn > 0 || !draft) return
-    setError('')
-    setBusy(true)
-    try {
-      const res = await api.post('/users/otp/send', {
-        email: draft.email,
-        purpose: draft.purpose,
-        ...(draft.purpose === 'login' ? { password: draft.password } : {}),
-      }, { customer: true })
-      setDevOtp(res.dev_otp || '')
-      setOtpCode('')
-      setResendIn(RESEND_WAIT)
-    } catch (err) {
-      setError(err.message || 'Could not resend the OTP. Please try again.')
+      setError(err.message || 'Could not sign in. Please try again.')
     } finally {
       setBusy(false)
     }
@@ -192,17 +128,11 @@ export default function CustomerLogin() {
               <img src="/images/logo/Sree Sangram logo.png" alt="শ্রী সংগ্রাম লোগো" decoding="async" />
             </span>
             <div className="eyebrow" style={{ justifyContent: 'center' }}>গ্রাহক অ্যাকাউন্ট</div>
-            <h1>
-              {step === 'otp'
-                ? 'Enter your OTP'
-                : mode === 'login' ? 'Welcome back' : 'Create your account'}
-            </h1>
+            <h1>{mode === 'login' ? 'Welcome back' : 'Create your account'}</h1>
             <p>
-              {step === 'otp'
-                ? 'A one-time password was sent to your email. Enter it below to continue.'
-                : mode === 'login'
-                  ? 'Sign in to buy gemstones, crystals, vastu items & aura salts with PhonePe.'
-                  : 'Register once, then checkout in a single tap with PhonePe.'}
+              {mode === 'login'
+                ? 'Sign in to buy gemstones, crystals, vastu items & aura salts with PhonePe.'
+                : 'Register once, then checkout in a single tap with PhonePe.'}
             </p>
           </div>
 
@@ -227,148 +157,97 @@ export default function CustomerLogin() {
             </button>
           </div>
 
-          {step === 'otp' ? (
-            <div className="auth-form">
-              <p className="otp-meta">
-                We sent a 6-digit code to
-                <br />
-                <strong>{draft?.email}</strong>
-              </p>
+          {isGoogleConfigured() && (
+            <div className="auth-google">
+              <div ref={googleBtnRef} className="google-btn-host" aria-label="Continue with Google"></div>
+              <div className="auth-divider"><span>or continue with email</span></div>
+            </div>
+          )}
 
+          <form onSubmit={submit} className="auth-form">
+            {mode === 'register' && (
               <div className="field">
-                <label htmlFor="otp">One-time password</label>
-                <input
-                  id="otp"
-                  className="otp-input"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  pattern="[0-9]{6}"
-                  placeholder="••••••"
-                  value={otpCode}
-                  onChange={(e) => onOtpChange(e.target.value)}
-                  disabled={verifying}
-                  autoFocus
-                />
+                <label htmlFor="name">Full name</label>
+                <input id="name" name="name" type="text" required minLength={2} autoComplete="name" placeholder="Rahul Sharma" />
               </div>
+            )}
 
-              {devOtp && (
-                <div className="otp-dev" role="status">
-                  Dev mode — your OTP is <strong>{devOtp}</strong>
-                </div>
-              )}
+            <div className="field">
+              <label htmlFor="email">Email</label>
+              <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
+            </div>
 
-              {error && (
-                <div className="auth-error" role="alert">
-                  {error}
-                </div>
-              )}
+            {mode === 'register' && (
+              <div className="field">
+                <label htmlFor="phone">Phone <span className="opt">(optional)</span></label>
+                <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+91 98765 43210" />
+              </div>
+            )}
 
-              <button
-                type="button"
-                className="btn btn-primary btn-block"
-                onClick={() => verifyOtp(otpCode)}
-                disabled={verifying || otpCode.length !== 6}
-              >
-                {verifying ? 'Verifying…' : 'Verify & continue'}
-              </button>
-
-              <div className="otp-actions">
-                <button type="button" className="btn btn-outline btn-block" onClick={resend} disabled={resendIn > 0 || busy}>
-                  {resendIn > 0 ? `Resend code in ${resendIn}s` : 'Resend code'}
-                </button>
-                <button type="button" className="otp-back" onClick={backToForm}>
-                  ← Use a different email
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <div className="pass-wrap">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPass ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder={mode === 'login' ? 'Your password' : 'At least 6 characters'}
+                />
+                <button
+                  type="button"
+                  className="pass-toggle"
+                  onClick={() => setShowPass((v) => !v)}
+                  aria-label={showPass ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPass}
+                >
+                  {showPass ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
               </div>
             </div>
-          ) : (
-            <form onSubmit={submit} className="auth-form">
-              {mode === 'register' && (
-                <div className="field">
-                  <label htmlFor="name">Full name</label>
-                  <input id="name" name="name" type="text" required minLength={2} autoComplete="name" placeholder="Rahul Sharma" />
-                </div>
-              )}
 
+            {mode === 'register' && (
               <div className="field">
-                <label htmlFor="email">Email</label>
-                <input id="email" name="email" type="email" required autoComplete="email" placeholder="you@example.com" />
-              </div>
-
-              {mode === 'register' && (
-                <div className="field">
-                  <label htmlFor="phone">Phone <span className="opt">(optional)</span></label>
-                  <input id="phone" name="phone" type="tel" autoComplete="tel" placeholder="+91 98765 43210" />
-                </div>
-              )}
-
-              <div className="field">
-                <label htmlFor="password">Password</label>
+                <label htmlFor="confirm">Confirm password</label>
                 <div className="pass-wrap">
                   <input
-                    id="password"
-                    name="password"
-                    type={showPass ? 'text' : 'password'}
+                    id="confirm"
+                    name="confirm"
+                    type={showConfirm ? 'text' : 'password'}
                     required
                     minLength={6}
-                    autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    placeholder={mode === 'login' ? 'Your password' : 'At least 6 characters'}
+                    autoComplete="new-password"
+                    placeholder="Repeat your password"
                   />
                   <button
                     type="button"
                     className="pass-toggle"
-                    onClick={() => setShowPass((v) => !v)}
-                    aria-label={showPass ? 'Hide password' : 'Show password'}
-                    aria-pressed={showPass}
+                    onClick={() => setShowConfirm((v) => !v)}
+                    aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                    aria-pressed={showConfirm}
                   >
-                    {showPass ? <EyeOffIcon /> : <EyeIcon />}
+                    {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
                   </button>
                 </div>
               </div>
+            )}
 
-              {mode === 'register' && (
-                <div className="field">
-                  <label htmlFor="confirm">Confirm password</label>
-                  <div className="pass-wrap">
-                    <input
-                      id="confirm"
-                      name="confirm"
-                      type={showConfirm ? 'text' : 'password'}
-                      required
-                      minLength={6}
-                      autoComplete="new-password"
-                      placeholder="Repeat your password"
-                    />
-                    <button
-                      type="button"
-                      className="pass-toggle"
-                      onClick={() => setShowConfirm((v) => !v)}
-                      aria-label={showConfirm ? 'Hide password' : 'Show password'}
-                      aria-pressed={showConfirm}
-                    >
-                      {showConfirm ? <EyeOffIcon /> : <EyeIcon />}
-                    </button>
-                  </div>
-                </div>
-              )}
+            {error && (
+              <div className="auth-error" role="alert">
+                {error}
+              </div>
+            )}
 
-              {error && (
-                <div className="auth-error" role="alert">
-                  {error}
-                </div>
-              )}
+            <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
+              {busy
+                ? 'Please wait…'
+                : mode === 'login' ? 'Sign in' : 'Create account'}
+            </button>
+          </form>
 
-              <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
-                {busy
-                  ? 'Sending code…'
-                  : mode === 'login' ? 'Send me a code' : 'Create account & send code'}
-              </button>
-            </form>
-          )}
-
-          {productHint && mode === 'login' && step === 'form' && (
+          {productHint && mode === 'login' && (
             <p className="auth-hint">
               You were about to buy a product — sign in to continue with the checkout.
             </p>

@@ -31,10 +31,50 @@ components:
           example: admin
         password:
           type: string
-          example: admin123
+          example: ••••••••
       required:
         - username
         - password
+    Category:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        parent_id:
+          type: number
+          nullable: true
+        product_count:
+          type: number
+        created_at:
+          type: string
+      required:
+        - id
+        - name
+      additionalProperties:
+        nullable: true
+    CategoryInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+          example: Healing Crystals
+        parent_id:
+          type: number
+          nullable: true
+          example: 1
+      required:
+        - name
+    Success:
+      type: object
+      properties:
+        success:
+          type: boolean
+      required:
+        - success
     Product:
       type: object
       properties:
@@ -103,13 +143,6 @@ components:
         - name
         - category
         - price
-    Success:
-      type: object
-      properties:
-        success:
-          type: boolean
-      required:
-        - success
     ProductImageInput:
       type: object
       properties:
@@ -623,6 +656,15 @@ components:
         phone:
           type: string
           nullable: true
+        photo_url:
+          type: string
+          nullable: true
+        age:
+          type: number
+          nullable: true
+        zodiac_sign:
+          type: string
+          nullable: true
         created_at:
           type: string
       required:
@@ -631,6 +673,15 @@ components:
         - email
       additionalProperties:
         nullable: true
+    GoogleLoginInput:
+      type: object
+      properties:
+        credential:
+          type: string
+          minLength: 20
+          example: …Google ID token (JWT) returned by the Sign in with Google callback…
+      required:
+        - credential
     CustomerRegisterInput:
       type: object
       properties:
@@ -666,6 +717,45 @@ components:
       required:
         - email
         - password
+    CustomerProfileUpdateInput:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          example: Rahul Sharma
+        phone:
+          type: string
+          example: '9999999999'
+        age:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 120
+          example: 32
+        zodiac_sign:
+          type: string
+          nullable: true
+          example: Leo
+    CustomerPhotoInput:
+      type: object
+      properties:
+        photo:
+          type: string
+          format: binary
+    CustomerPasswordInput:
+      type: object
+      properties:
+        current_password:
+          type: string
+          example: secret123
+        new_password:
+          type: string
+          minLength: 6
+          example: newsecret123
+      required:
+        - current_password
+        - new_password
     Order:
       type: object
       properties:
@@ -914,6 +1004,82 @@ paths:
                 $ref: '#/components/schemas/Error'
         '401':
           description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/categories:
+    get:
+      tags:
+        - Categories
+      summary: List all categories with product counts
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+    post:
+      tags:
+        - Categories
+      summary: Create a category or sub-category (admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '400':
+          description: Name taken or bad parent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/categories/{id}:
+    delete:
+      tags:
+        - Categories
+      summary: Delete a category and its sub-categories (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '400':
+          description: Missing category
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
           content:
             application/json:
               schema:
@@ -1822,6 +1988,116 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/PaymentRecord'
+  /api/users:
+    get:
+      tags:
+        - Customers
+      summary: List all registered clients with profile details (admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Clients
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                    name:
+                      type: string
+                    email:
+                      type: string
+                    phone:
+                      type: string
+                      nullable: true
+                    photo_url:
+                      type: string
+                      nullable: true
+                    age:
+                      type: number
+                      nullable: true
+                    zodiac_sign:
+                      type: string
+                      nullable: true
+                    created_at:
+                      type: string
+                  required:
+                    - id
+                    - name
+                    - email
+                  additionalProperties:
+                    nullable: true
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/{id}:
+    delete:
+      tags:
+        - Customers
+      summary: Delete a client account and their orders (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Success'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Client not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/google:
+    post:
+      tags:
+        - Customers
+      summary: Sign in or register with Google — verifies a Google ID token and returns a customer JWT
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleLoginInput'
+      responses:
+        '200':
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerAuthResponse'
+        '401':
+          description: Google verification failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Google sign-in not configured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
   /api/users/register:
     post:
       tags:
@@ -1849,7 +2125,7 @@ paths:
     post:
       tags:
         - Customers
-      summary: Customer login — returns a JWT
+      summary: Customer login — email + password, returns a JWT
       requestBody:
         content:
           application/json:
@@ -1882,6 +2158,146 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Customer'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    put:
+      tags:
+        - Customers
+      summary: Update the current customer profile (name, phone, age, zodiac sign)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerProfileUpdateInput'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/me/photo:
+    post:
+      tags:
+        - Customers
+      summary: Upload the customer profile photo
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CustomerPhotoInput'
+      responses:
+        '200':
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Customer'
+        '400':
+          description: No image file provided
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/me/password:
+    post:
+      tags:
+        - Customers
+      summary: Change the customer password
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerPasswordInput'
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '400':
+          description: Wrong current password / weak new password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/users/me/bookings:
+    get:
+      tags:
+        - Customers
+      summary: List the current customer appointments (matched by phone or email)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Customer bookings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                    client_name:
+                      type: string
+                    service:
+                      type: string
+                    chamber_name:
+                      type: string
+                      nullable: true
+                    booking_date:
+                      type: string
+                    time_slot:
+                      type: string
+                    status:
+                      type: string
+                    created_at:
+                      type: string
+                  required:
+                    - id
+                    - client_name
+                    - service
+                    - booking_date
+                    - time_slot
+                  additionalProperties:
+                    nullable: true
         '401':
           description: Unauthorized
           content:
@@ -2207,3 +2623,33 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ShippingConfigResponse'
+  /api/images/{table}/{id}:
+    get:
+      tags:
+        - Images
+      summary: Serve an image stored in the database
+      parameters:
+        - schema:
+            type: string
+          required: true
+          name: table
+          in: path
+        - schema:
+            type: string
+          required: true
+          name: id
+          in: path
+      responses:
+        '200':
+          description: Image bytes
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

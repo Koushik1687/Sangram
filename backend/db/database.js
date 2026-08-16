@@ -9,12 +9,34 @@ import bcrypt from 'bcryptjs'
 
 let pool
 
+/* Resolve the Neon connection string. Priority order matches what Vercel and
+   Neon actually inject into the environment:
+     1. DATABASE_URL             — manually set / used locally
+     2. POSTGRES_URL             — set by the Neon (Vercel) storage integration
+     3. DATABASE_URL_UNPOOLED    — Neon's non-pooled URL, set by integrations
+     4. POSTGRES_URL_NON_POOLING — Vercel's non-pooled URL
+     5. POSTGRES_PRISMA_URL      — Vercel's Prisma-formatted URL
+   Any one of them points at the same project, so the app connects no matter
+   which naming convention the hosting environment uses. */
+function resolveConnectionString() {
+  const candidates = [
+    process.env.DATABASE_URL,
+    process.env.POSTGRES_URL,
+    process.env.DATABASE_URL_UNPOOLED,
+    process.env.POSTGRES_URL_NON_POOLING,
+    process.env.POSTGRES_PRISMA_URL,
+  ]
+  return candidates.find((v) => v && typeof v === 'string' && v.trim() !== '')
+}
+
 function getPool() {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL
+    const connectionString = resolveConnectionString()
     if (!connectionString) {
       throw new Error(
-        'DATABASE_URL is not set. Add your Neon connection string to backend/.env, e.g.\n' +
+        'No Neon connection string found. Set one of DATABASE_URL, POSTGRES_URL, ' +
+        'DATABASE_URL_UNPOOLED or POSTGRES_URL_NON_POOLING in the environment ' +
+        '(backend/.env locally, Vercel → Settings → Environment Variables in production), e.g.\n' +
         'DATABASE_URL=postgresql://user:password@ep-xxxx.region.aws.neon.tech/neondb?sslmode=require',
       )
     }
@@ -62,14 +84,19 @@ async function exec(sql) {
 
 let initPromise
 
-/** Create the pool, build the schema and seed demo data. Safe to call multiple times. */
+/** Create the pool, build the schema and seed demo data. Safe to call multiple times.
+ *  On failure the promise is reset so a later call can retry — this keeps a
+ *  serverless function from being permanently wedged by a transient DB error. */
 export function initDb() {
   if (!initPromise) {
     initPromise = (async () => {
       getPool() // throws a helpful error when DATABASE_URL is missing
       await initSchema()
       await seedData()
-    })()
+    })().catch((err) => {
+      initPromise = null // allow a retry on the next call
+      throw err
+    })
   }
   return initPromise
 }

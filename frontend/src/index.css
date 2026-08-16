@@ -1791,6 +1791,26 @@ footer{ background:var(--bg-alt); border-top:1px solid var(--panel-line); paddin
   color:#171006;
   font-weight:600;
 }
+/* --- Google sign-in ("Continue as Google") --- */
+.auth-google{ margin-bottom:4px; }
+.google-btn-host{
+  display:flex; justify-content:center;
+  min-height:44px;
+}
+.google-btn-host iframe{ max-width:100%; }
+.auth-divider{
+  display:flex; align-items:center; gap:12px;
+  margin:18px 0 2px;
+  color:var(--text-dim);
+  font-size:.72rem;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+.auth-divider::before,
+.auth-divider::after{
+  content:''; flex:1; height:1px;
+  background:var(--panel-line);
+}
 .auth-form{ display:flex; flex-direction:column; gap:16px; }
 .auth-form .field label .opt{ color:var(--text-dim); font-weight:400; text-transform:none; }
 .auth-error{
@@ -1814,28 +1834,6 @@ footer{ background:var(--bg-alt); border-top:1px solid var(--panel-line); paddin
 .auth-back{ text-align:center; margin:18px 0 0; }
 .auth-back a{ color:var(--text-dim); font-size:.85rem; transition:color .25s; }
 .auth-back a:hover{ color:var(--gold-soft); }
-
-/* --- OTP step --- */
-.otp-meta{ text-align:center; font-size:.9rem; color:var(--text-muted); margin:-4px 0 2px; line-height:1.55; }
-.otp-meta strong{ color:var(--text); }
-.otp-input{
-  width:100%; text-align:center; font-size:1.7rem; font-weight:700; letter-spacing:.5em;
-  padding:12px 8px 12px 21px;
-  border-radius:12px; border:1px solid var(--panel-line); background:rgba(255,255,255,.04);
-  color:var(--text); font-variant-numeric:tabular-nums;
-}
-.otp-input:focus{ border-color:var(--gold); outline:none; box-shadow:0 0 0 3px rgba(212,175,55,.18); }
-.otp-input::placeholder{ color:var(--text-dim); }
-.otp-dev{
-  background:rgba(212,175,55,.08); border:1px dashed var(--gold-dim); color:var(--gold-soft);
-  border-radius:10px; padding:10px 14px; font-size:.85rem; text-align:center;
-}
-.otp-actions{ display:flex; flex-direction:column; gap:10px; margin-top:2px; }
-.otp-back{
-  border:none; background:transparent; color:var(--text-dim); font-size:.85rem;
-  cursor:pointer; padding:6px; transition:color .25s;
-}
-.otp-back:hover{ color:var(--gold-soft); }
 
 /* ==========================================================================
    Navbar — account chip

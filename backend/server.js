@@ -10,14 +10,14 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { createApp } from './routes/schemas.js'
 
-// Initialise Postgres (Neon) immediately on startup
+// Initialise Postgres (Neon). On Vercel (serverless/Fluid) a crash here would
+// turn every /api call into FUNCTION_INVOCATION_FAILED, so a DB failure is
+// logged but never fatal — the handler stays up and initDb() retries on the
+// next call (see db/database.js).
 const { initDb } = await import('./db/database.js')
-try {
-  await initDb()
-} catch (err) {
-  console.error('❌  Database initialisation failed:', err.message || err)
-  process.exit(1)
-}
+initDb().catch((err) => {
+  console.error('⚠️  Database initialisation failed — API will retry:', err.message || err)
+})
 
 import authRoutes from './routes/auth.js'
 import categoryRoutes from './routes/categories.js'
@@ -100,6 +100,11 @@ app.onError((err, c) => {
   console.error(err)
   return c.json({ error: err.message || 'Internal server error' }, 500)
 })
+
+/* Vercel (Services on Fluid compute) imports this module as a serverless
+   function — the default export is the Hono fetch handler. When run directly
+   with `node server.js` this export is simply ignored. */
+export default app.fetch
 
 // Only start the HTTP server when run directly (not when imported by tools)
 const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href

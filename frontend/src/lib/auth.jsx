@@ -44,8 +44,8 @@ export function AuthProvider({ children }) {
     return () => { live = false }
   }, [token])
 
-  const login = useCallback(async (email, password, otpToken) => {
-    const res = await api.post('/users/login', { email, password, otp_token: otpToken }, { customer: true })
+  const login = useCallback(async (email, password) => {
+    const res = await api.post('/users/login', { email, password }, { customer: true })
     saveCustomerToken(res.token)
     setToken(res.token)
     setUser(res.user)
@@ -54,6 +54,16 @@ export function AuthProvider({ children }) {
 
   const register = useCallback(async (payload) => {
     const res = await api.post('/users/register', payload, { customer: true })
+    saveCustomerToken(res.token)
+    setToken(res.token)
+    setUser(res.user)
+    return res.user
+  }, [])
+
+  /* Google sign-in: the backend verifies the ID token and logs the customer
+     in (creating the account on first use — no OTP needed). */
+  const googleLogin = useCallback(async (credential) => {
+    const res = await api.post('/users/google', { credential }, { customer: true })
     saveCustomerToken(res.token)
     setToken(res.token)
     setUser(res.user)
@@ -72,7 +82,7 @@ export function AuthProvider({ children }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, token, ready, login, register, logout, updateUser }}>
+    <AuthContext.Provider value={{ user, token, ready, login, register, googleLogin, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   )

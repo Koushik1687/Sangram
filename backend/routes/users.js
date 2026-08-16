@@ -1,5 +1,6 @@
 /* ==========================================================================
-   routes/users.js — customer accounts: register, login, current profile.
+   routes/users.js — customer accounts: register, login (email/password or
+   Google), current profile.
    Tokens are signed with the same JWT secret as admin tokens but carry
    role: 'customer' so the two auth middlewares never overlap.
    ========================================================================== */
@@ -9,91 +10,23 @@ import jwt from 'jsonwebtoken'
 import crypto from 'node:crypto'
 import { get, query, run } from '../db/database.js'
 import { authMiddleware, customerAuthMiddleware } from '../middleware/auth.js'
-import { sendOtpEmail } from '../services/emailjs.js'
+import { googleConfigured, verifyGoogleToken } from '../services/google.js'
 import { storeImage } from '../services/images.js'
 import {
   createApp, CustomerAuthResponse, CustomerLoginInput, CustomerPasswordInput,
   CustomerPhotoInput, CustomerProfileUpdateInput, CustomerRegisterInput,
-  CustomerSchema, ErrorSchema, OtpSendInput, OtpSendResponse,
-  OtpVerifyInput, OtpVerifyResponse, SuccessSchema,
+  CustomerSchema, ErrorSchema, GoogleLoginInput, SuccessSchema,
 } from './schemas.js'
 
 const router = createApp()
 const JWT_SECRET = process.env.JWT_SECRET || 'srisangram_secret'
 
-/* ---------- OTP helpers ---------- */
-
-function generateOtp() {
-  return String(crypto.randomInt(100000, 1000000))
-}
-
-function safeEqual(a, b) {
-  const ba = Buffer.from(String(a))
-  const bb = Buffer.from(String(b))
-  return ba.length === bb.length && crypto.timingSafeEqual(ba, bb)
-}
-
-/* Issue a fresh OTP for an email/purpose and email it to the user. */
-async function sendOtp({ email, purpose, password }) {
-  const normalized = email.trim().toLowerCase()
-
-  if (purpose === 'login') {
-    const user = await get('SELECT * FROM users WHERE lower(email) = ?', [normalized])
-    if (!user) return { status: 400, body: { error: 'No account found with this email' } }
-    if (!password || !bcrypt.compareSync(password, user.password_hash)) {
-      return { status: 401, body: { error: 'Invalid email or password' } }
-    }
-  } else {
-    const existing = await get('SELECT id FROM users WHERE lower(email) = ?', [normalized])
-    if (existing) return { status: 400, body: { error: 'An account with this email already exists' } }
-  }
-
-  /* Abuse guard: at most 5 codes per email per hour, 30s between sends. */
-  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-  const recent = Number((await get(
-    'SELECT COUNT(*) AS n FROM otp_codes WHERE lower(email) = ? AND created_at > ?',
-    [normalized, hourAgo],
-  )).n)
-  if (recent >= 5) {
-    return { status: 429, body: { error: 'Too many OTP requests for this email — please try again in an hour' } }
-  }
-  const last = await get(
-    'SELECT created_at FROM otp_codes WHERE lower(email) = ? AND purpose = ? ORDER BY id DESC LIMIT 1',
-    [normalized, purpose],
+function customerToken(user) {
+  return jwt.sign(
+    { id: user.id, email: user.email, name: user.name, role: 'customer' },
+    JWT_SECRET,
+    { expiresIn: '7d' },
   )
-  if (last && Date.now() - new Date(last.created_at).getTime() < 30_000) {
-    return { status: 429, body: { error: 'Please wait 30 seconds before requesting another code' } }
-  }
-
-  const code = generateOtp()
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString()
-
-  /* Invalidate any earlier, still-unverified codes for this email/purpose. */
-  await run('UPDATE otp_codes SET used = 2 WHERE lower(email) = ? AND purpose = ? AND used = 0', [normalized, purpose])
-  await run('INSERT INTO otp_codes (email, code, purpose, expires_at) VALUES (?, ?, ?, ?)',
-    [normalized, code, purpose, expiresAt])
-
-  try {
-    await sendOtpEmail({ toEmail: normalized, otp: code })
-  } catch (err) {
-    /* Local dev without EmailJS: return the code so the flow can be tested. */
-    if (process.env.NODE_ENV !== 'production') {
-      return { status: 200, body: { success: true, dev_otp: code, message: 'EmailJS not configured — dev OTP returned' } }
-    }
-    return { status: 500, body: { error: err.message || 'Could not send the OTP email' } }
-  }
-  return { status: 200, body: { success: true } }
-}
-
-/* Mark a verified OTP row as consumed; returns the row id or null. */
-async function consumeOtpToken({ email, purpose, otpToken }) {
-  const r = await run(
-    `UPDATE otp_codes SET used = 2
-     WHERE lower(email) = ? AND purpose = ? AND verify_token = ? AND used = 1 AND expires_at > now()
-     RETURNING id`,
-    [email.trim().toLowerCase(), purpose, otpToken],
-  )
-  return r.lastInsertRowid
 }
 
 const registerRoute = createRoute({
@@ -114,44 +47,28 @@ const loginRoute = createRoute({
   method: 'post',
   path: '/login',
   tags: ['Customers'],
-  summary: 'Customer login — email, password and a verified OTP are required',
+  summary: 'Customer login — email + password, returns a JWT',
   request: {
     body: { content: { 'application/json': { schema: CustomerLoginInput } } },
   },
   responses: {
     200: { description: 'Login successful', content: { 'application/json': { schema: CustomerAuthResponse } } },
-    401: { description: 'Invalid credentials / OTP verification required', content: { 'application/json': { schema: ErrorSchema } } },
+    401: { description: 'Invalid credentials', content: { 'application/json': { schema: ErrorSchema } } },
   },
 })
 
-const otpSendRoute = createRoute({
+const googleRoute = createRoute({
   method: 'post',
-  path: '/otp/send',
+  path: '/google',
   tags: ['Customers'],
-  summary: 'Send a one-time password (OTP) by email for login or signup',
+  summary: 'Sign in or register with Google — verifies a Google ID token and returns a customer JWT',
   request: {
-    body: { content: { 'application/json': { schema: OtpSendInput } } },
+    body: { content: { 'application/json': { schema: GoogleLoginInput } } },
   },
   responses: {
-    200: { description: 'OTP sent', content: { 'application/json': { schema: OtpSendResponse } } },
-    400: { description: 'Validation failed (no account / already registered)', content: { 'application/json': { schema: ErrorSchema } } },
-    401: { description: 'Wrong password (login purpose)', content: { 'application/json': { schema: ErrorSchema } } },
-    429: { description: 'Too many requests', content: { 'application/json': { schema: ErrorSchema } } },
-    500: { description: 'Email service not configured / send failed', content: { 'application/json': { schema: ErrorSchema } } },
-  },
-})
-
-const otpVerifyRoute = createRoute({
-  method: 'post',
-  path: '/otp/verify',
-  tags: ['Customers'],
-  summary: 'Verify an OTP code and receive a one-time token used by login/register',
-  request: {
-    body: { content: { 'application/json': { schema: OtpVerifyInput } } },
-  },
-  responses: {
-    200: { description: 'OTP verified', content: { 'application/json': { schema: OtpVerifyResponse } } },
-    400: { description: 'Invalid or expired OTP', content: { 'application/json': { schema: ErrorSchema } } },
+    200: { description: 'Signed in', content: { 'application/json': { schema: CustomerAuthResponse } } },
+    500: { description: 'Google sign-in not configured', content: { 'application/json': { schema: ErrorSchema } } },
+    401: { description: 'Google verification failed', content: { 'application/json': { schema: ErrorSchema } } },
   },
 })
 
@@ -332,77 +249,60 @@ function publicUser(u) {
   }
 }
 
-router.openapi(otpSendRoute, async (c) => {
-  const { email, purpose, password } = c.req.valid('json')
-  const result = await sendOtp({ email, purpose, password })
-  return c.json(result.body, result.status)
-})
+router.openapi(googleRoute, async (c) => {
+  const { credential } = c.req.valid('json')
 
-router.openapi(otpVerifyRoute, async (c) => {
-  const { email, code, purpose } = c.req.valid('json')
-  const normalized = email.trim().toLowerCase()
-
-  const row = await get(
-    `SELECT * FROM otp_codes
-     WHERE lower(email) = ? AND purpose = ? AND used = 0 AND expires_at > now()
-     ORDER BY id DESC LIMIT 1`,
-    [normalized, purpose],
-  )
-  if (!row || !safeEqual(row.code, code)) {
-    return c.json({ error: 'Invalid or expired OTP' }, 400)
+  /* Google already verified this email (ID tokens are signed by Google). */
+  let profile
+  try {
+    profile = await verifyGoogleToken(credential)
+  } catch (err) {
+    if (!googleConfigured()) {
+      return c.json({ error: 'Google sign-in is not configured on the server' }, 500)
+    }
+    console.error('[google] token verification failed:', err.message || err)
+    return c.json({ error: 'Google sign-in failed. Please try again.' }, 401)
   }
 
-  const token = crypto.randomBytes(24).toString('hex')
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
-  await run('UPDATE otp_codes SET used = 1, verify_token = ?, expires_at = ? WHERE id = ?',
-    [token, expiresAt, row.id])
-  return c.json({ success: true, token })
+  const email = profile.email.toLowerCase()
+  let user = await get('SELECT * FROM users WHERE lower(email) = ?', [email])
+
+  if (!user) {
+    /* New customer — create the account. A random password hash keeps the row
+       consistent with password-based accounts (the user can set a password
+       later from the account page). */
+    const hash = bcrypt.hashSync(crypto.randomBytes(32).toString('hex'), 10)
+    const r = await run(
+      'INSERT INTO users (name, email, phone, password_hash, photo_url) VALUES (?, ?, ?, ?, ?)',
+      [profile.name || email.split('@')[0], email, '', hash, profile.picture || ''],
+    )
+    user = await get('SELECT * FROM users WHERE id = ?', [r.lastInsertRowid])
+  }
+
+  return c.json({ token: customerToken(user), user: publicUser(user) })
 })
 
 router.openapi(registerRoute, async (c) => {
-  const { name, email, phone, password, otp_token } = c.req.valid('json')
+  const { name, email, phone, password } = c.req.valid('json')
 
   const existing = await get('SELECT id FROM users WHERE lower(email) = lower(?)', [email])
   if (existing) return c.json({ error: 'An account with this email already exists' }, 400)
-
-  /* The email must have been verified via OTP before an account can be created. */
-  const consumedId = await consumeOtpToken({ email, purpose: 'register', otpToken: otp_token })
-  if (!consumedId) {
-    return c.json({ error: 'OTP verification required before creating an account' }, 401)
-  }
 
   const hash = bcrypt.hashSync(password, 10)
   const r = await run('INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)',
     [name, email.toLowerCase(), phone || '', hash])
 
   const user = publicUser(await get('SELECT * FROM users WHERE id = ?', [r.lastInsertRowid]))
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: 'customer' },
-    JWT_SECRET,
-    { expiresIn: '7d' },
-  )
-  return c.json({ token, user })
+  return c.json({ token: customerToken(user), user })
 })
 
 router.openapi(loginRoute, async (c) => {
-  const { email, password, otp_token } = c.req.valid('json')
+  const { email, password } = c.req.valid('json')
   const user = await get('SELECT * FROM users WHERE lower(email) = lower(?)', [email])
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return c.json({ error: 'Invalid email or password' }, 401)
   }
-
-  /* A verified OTP token for this email must be presented and consumed. */
-  const consumedId = await consumeOtpToken({ email, purpose: 'login', otpToken: otp_token })
-  if (!consumedId) {
-    return c.json({ error: 'OTP verification required before login' }, 401)
-  }
-
-  const token = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: 'customer' },
-    JWT_SECRET,
-    { expiresIn: '7d' },
-  )
-  return c.json({ token, user: publicUser(user) })
+  return c.json({ token: customerToken(user), user: publicUser(user) })
 })
 
 router.openapi(meRoute, async (c) => {
