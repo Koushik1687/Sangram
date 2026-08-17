@@ -314,13 +314,28 @@ export default function Navbar() {
         {createPortal(
           <div id="mobile-panel" ref={navRef} className={`mobile-panel${open ? ' open' : ''}`}>
           <div className="mobile-panel-head">
-            <SectionNavLink href="#hero" className="brand" onClick={close}>
-              <span className="brand-mark">
-                <img src="/images/logo/Sree Sangram logo.png" alt="Sree Sangram Logo" decoding="async" />
-              </span>
-              <span className="brand-text"><span className="en">শ্রী সংগ্রাম</span></span>
-            </SectionNavLink>
+            <span className="mobile-theme-label">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+              </svg>
+              Theme
+            </span>
             <button className="mobile-close" aria-label="Close menu" onClick={close}>✕</button>
+          </div>
+          <div className="mobile-theme">
+            <div className="mobile-theme-opts" role="group" aria-label="Theme">
+              {['auto', 'light', 'dark'].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={theme === t ? 'active' : ''}
+                  onClick={() => applyTheme(t)}
+                  aria-pressed={theme === t}
+                >
+                  {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="mobile-auth">
@@ -380,27 +395,6 @@ export default function Navbar() {
             ))}
           </nav>
 
-          <div className="mobile-theme">
-            <span className="mobile-theme-label">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-              </svg>
-              Theme
-            </span>
-            <div className="mobile-theme-opts" role="group" aria-label="Theme">
-              {['auto', 'light', 'dark'].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={theme === t ? 'active' : ''}
-                  onClick={() => applyTheme(t)}
-                  aria-pressed={theme === t}
-                >
-                  {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
-                </button>
-              ))}
-            </div>
-          </div>
           </div>,
           document.body,
         )}

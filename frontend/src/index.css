@@ -337,18 +337,13 @@ section{ position:relative; padding:72px 0; }
 }
 .mobile-overlay.open{ opacity:1; visibility:visible; }
 
-/* Head — brand + close */
+/* Head — theme label + close */
 .mobile-panel-head{
   display:flex; align-items:center; justify-content:space-between;
   gap:10px;
-  padding:2px 2px 14px;
-  border-bottom:1px solid var(--panel-line);
-  margin-bottom:16px;
+  padding:0 0 12px;
   flex:none;
 }
-.mobile-panel-head .brand{ gap:10px; }
-.mobile-panel-head .brand-mark{ width:38px; height:38px; }
-.mobile-panel-head .brand-text .en{ font-size:.88rem; }
 
 .mobile-close{
   width:38px; height:38px;
@@ -514,20 +509,29 @@ section{ position:relative; padding:72px 0; }
 }
 .mobile-panel-nav a::before{ content:none; }
 
-/* Theme segmented control at the bottom */
+/* Theme segmented control — sits right under the drawer head */
 .mobile-theme{
   flex:none;
-  border-top:1px solid var(--panel-line);
-  padding-top:14px;
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:0 0 16px;
+  border-bottom:1px solid var(--panel-line);
+  margin-bottom:16px;
 }
 .mobile-theme-label{
-  font-size:.88rem; color:var(--text-muted);
+  font-size:.82rem; letter-spacing:.08em; text-transform:uppercase;
+  color:var(--gold-soft);
   display:flex; align-items:center; gap:8px;
+  font-weight:600;
+  white-space:nowrap;
 }
 .mobile-theme-label svg{ color:var(--gold-soft); }
 .mobile-theme-opts{
   display:flex;
+  flex:1;
+  justify-content:stretch;
   background:rgba(255,255,255,.04);
   border:1px solid var(--panel-line);
   border-radius:999px;
@@ -536,11 +540,12 @@ section{ position:relative; padding:72px 0; }
 .mobile-theme-opts button{
   flex:1;
   border:none; background:transparent; cursor:pointer;
-  padding:6px 12px;
+  padding:6px 10px;
   border-radius:999px;
   font-size:.78rem; letter-spacing:.02em;
   color:var(--text-muted);
   transition:background .25s, color .25s;
+  white-space:nowrap;
 }
 .mobile-theme-opts button.active{
   background:linear-gradient(135deg,var(--gold-light),var(--gold));
