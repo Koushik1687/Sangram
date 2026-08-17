@@ -110,8 +110,17 @@ router.openapi(createRouteDef, async (c) => {
 
 router.openapi(updateRouteDef, async (c) => {
   const { name, category, price, description, image_url, stock, low_stock_threshold } = c.req.valid('json')
-  await run('UPDATE products SET name=?,category=?,price=?,description=?,image_url=?,stock=?,low_stock_threshold=? WHERE id=?',
-    [name, category, price, description, image_url || '', stock ?? null, low_stock_threshold ?? null, c.req.param('id')])
+  if (image_url !== undefined) {
+    await run(
+      'UPDATE products SET name=?,category=?,price=?,description=?,image_url=?,stock=?,low_stock_threshold=? WHERE id=?',
+      [name, category, price, description || '', image_url || '', stock ?? null, low_stock_threshold ?? null, c.req.param('id')],
+    )
+  } else {
+    await run(
+      'UPDATE products SET name=?,category=?,price=?,description=?,stock=?,low_stock_threshold=? WHERE id=?',
+      [name, category, price, description || '', stock ?? null, low_stock_threshold ?? null, c.req.param('id')],
+    )
+  }
   return c.json({ success: true })
 })
 

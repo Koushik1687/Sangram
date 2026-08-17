@@ -129,16 +129,18 @@ html[data-theme="light"] .icon-btn{ background:rgba(188,131,23,.07); }
 
 /* ---------- Modal ---------- */
 .modal-overlay{
-  position:fixed; inset:0; background:rgba(12,8,3,.7); backdrop-filter:blur(4px);
-  display:flex; align-items:center; justify-content:center; z-index:500;
-  padding:20px; opacity:0; visibility:hidden; transition:all .3s var(--ease);
+  position:fixed; inset:0; background:rgba(12,8,3,.75); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center; z-index:1200;
+  padding:20px; opacity:0; visibility:hidden; transition:opacity .3s var(--ease), visibility .3s;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
 }
 .modal-overlay.open{ opacity:1; visibility:visible; }
 .modal{
-  width:100%; max-width:520px; max-height:88vh; overflow-y:auto;
+  width:100%; max-width:520px; max-height:calc(100dvh - 40px); overflow-y:auto;
   background:var(--surface-raised); border:1px solid var(--panel-line); border-radius:var(--radius);
   padding:28px; transform:translateY(16px); transition:transform .3s var(--ease);
   box-shadow:var(--shadow-card);
+  margin:auto;
 }
 .modal-overlay.open .modal{ transform:translateY(0); }
 .modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
@@ -149,18 +151,18 @@ html[data-theme="light"] .icon-btn{ background:rgba(188,131,23,.07); }
 .modal-actions .btn{ flex:1; }
 
 /* The action row stays pinned to the bottom of the modal so Cancel / Save are
-   always visible on small screens — without it the buttons sit below the
-   fold of a scrollable 88vh modal (hidden behind the mobile bottom nav) and
-   users tap blindly, causing missed taps and duplicate saves. */
+   always visible on small screens with proper safe-area padding. */
 .modal .modal-actions{
-  position:sticky; bottom:0; z-index:2;
-  margin:18px -28px -28px; padding:14px 28px 2px;
+  position:sticky; bottom:0; z-index:5;
+  margin:18px -28px -28px; padding:14px 28px 16px;
   background:var(--surface-raised);
   border-top:1px solid var(--panel-line);
 }
 .modal .modal-actions .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
 @media (max-width:560px){
-  .modal .modal-actions{ margin:16px -18px -22px; padding:12px 18px 0; }
+  .modal-overlay{ padding:12px 12px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  .modal{ max-height:calc(100dvh - 32px); padding:22px 18px 18px; border-radius:18px; }
+  .modal .modal-actions{ margin:16px -18px -18px; padding:14px 18px calc(14px + env(safe-area-inset-bottom, 0px)); }
 }
 
 /* ---------- Confirm dialog ---------- */
@@ -372,7 +374,7 @@ html[data-theme="light"] .client-search{ background:#ffffff; }
   padding:12px 18px;
   box-shadow:var(--shadow-card);
   font-size:.86rem; color:var(--text);
-  z-index:600;
+  z-index:1300;
   opacity:0; visibility:hidden;
   transition:opacity .3s var(--ease), transform .3s var(--ease), visibility .3s;
 }

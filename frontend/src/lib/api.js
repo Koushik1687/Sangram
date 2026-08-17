@@ -48,13 +48,16 @@ export const api = {
   patch:  (path, body, options) => request(path, { method: 'PATCH', body: JSON.stringify(body), ...options }),
   delete: (path, options) => request(path, { method: 'DELETE', ...options }),
 
-  // Multipart for gallery upload (admin token)
+  // Multipart for gallery / product upload (admin token)
   upload: async (path, formData) => {
     const headers = {};
     const token = getToken();
     if (token) headers['Authorization'] = `Bearer ${token}`;
     const res = await fetch(`${BASE}${path}`, { method: 'POST', body: formData, headers });
-    if (!res.ok) throw new Error('Upload failed');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(err.error || 'Upload failed');
+    }
     return res.json();
   },
 

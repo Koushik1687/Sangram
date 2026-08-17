@@ -357,7 +357,11 @@ export default function AdminDashboard() {
       onConfirm: () => api
         .delete(`${entity.endpoint}/${id}`)
         .then(() => { loadAll(); showToast(`${label.charAt(0).toUpperCase()}${label.slice(1)} deleted`) })
-        .catch(() => setLoadError('Delete failed — please try again.')),
+        .catch((err) => {
+          const msg = err?.message || 'Delete failed — please try again.'
+          setLoadError(msg)
+          showToast(msg, 'error')
+        }),
     })
   }
 
@@ -370,7 +374,9 @@ export default function AdminDashboard() {
     const values = {}
     modal.schema.fields.forEach((f) => { values[f.name] = fd.get(f.name) })
     const payload = modal.schema.toPayload(values)
-    const imageFile = values.image instanceof File ? values.image : null
+    const rawImage = values.image
+    const hasImageFile = rawImage instanceof File && rawImage.size > 0 && !!rawImage.name
+    const imageFile = hasImageFile ? rawImage : null
     const req = modal.id
       ? api.put(`${modal.schema.endpoint}/${modal.id}`, payload)
       : api.post(modal.schema.endpoint, payload)
@@ -387,7 +393,11 @@ export default function AdminDashboard() {
         }
         done()
       })
-      .catch(() => setLoadError('Save failed — please try again.'))
+      .catch((err) => {
+        const msg = err?.message || 'Save failed — please try again.'
+        setLoadError(msg)
+        showToast(msg, 'error')
+      })
       .finally(() => { modalBusyRef.current = false; setModalBusy(false) })
   }
 
