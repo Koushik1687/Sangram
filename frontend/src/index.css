@@ -2993,8 +2993,6 @@ html[data-theme="light"] .login-back a:hover{ color:var(--blue-deep); }
   position:fixed; left:0; right:0; bottom:0; z-index:900;
   display:none;
   height:calc(72px + env(safe-area-inset-bottom, 0px));
-  /* Reserved strip below the tabs for the home indicator */
-  padding-bottom:calc(12px + env(safe-area-inset-bottom, 0px));
   background:rgba(24,16,9,.92);
   backdrop-filter:blur(18px) saturate(140%);
   -webkit-backdrop-filter:blur(18px) saturate(140%);
@@ -3044,14 +3042,7 @@ html[data-theme="light"] .login-back a:hover{ color:var(--blue-deep); }
   width:20px; height:3px; border-radius:0 0 4px 4px;
   background:var(--gold);
 }
-/* iOS-style home indicator */
-.bottom-nav-indicator{
-  position:absolute; left:50%; bottom:calc(5px + env(safe-area-inset-bottom, 0px));
-  transform:translateX(-50%);
-  width:132px; height:4px; border-radius:999px;
-  background:rgba(242,237,225,.55);
-  pointer-events:none;
-}
+
 
 @media (max-width:860px){
   body{ padding-bottom:calc(80px + env(safe-area-inset-bottom, 0px)); }
@@ -3071,4 +3062,4 @@ html[data-theme="light"] .bottom-nav-item{ color:#8a8268; }
 html[data-theme="light"] .bottom-nav-item.active{ color:var(--gold-soft); }
 html[data-theme="light"] .bottom-nav-item.active .bottom-nav-icon{ filter:drop-shadow(0 0 8px rgba(188,131,23,.35)); }
 html[data-theme="light"] .bottom-nav-item.active::before{ background:var(--gold); }
-html[data-theme="light"] .bottom-nav-indicator{ background:#2b2113; opacity:.85; }
+

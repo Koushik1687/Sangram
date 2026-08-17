@@ -215,7 +215,6 @@ export default function BottomNav({ adminView, onAdminView }) {
           </Link>
         )
       })}
-      <span className="bottom-nav-indicator" aria-hidden="true"></span>
     </nav>
   )
 }
