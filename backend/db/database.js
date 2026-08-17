@@ -463,14 +463,17 @@ async function seedData() {
   if (galleryCount === 0) {
     const insert = (label, image_url, category) =>
       run('INSERT INTO gallery (label, image_url, category) VALUES (?, ?, ?)', [label, image_url, category])
-    await insert('Seminar 2026', '/uploads/placeholder.jpg', 'Events')
-    await insert('Temple Visit', '/uploads/placeholder.jpg', 'Events')
-    await insert('Client Session', '/uploads/placeholder.jpg', 'Work')
-    await insert('Certificate', '/uploads/placeholder.jpg', 'Awards')
-    await insert('Workshop', '/uploads/placeholder.jpg', 'Events')
-    await insert('Award Ceremony', '/uploads/placeholder.jpg', 'Awards')
-    await insert('Media Interview', '/uploads/placeholder.jpg', 'Media')
-    await insert('Annual Puja', '/uploads/placeholder.jpg', 'Events')
+    // Placeholder lives in frontend/public so the static frontend serves it —
+    // /uploads/* never reaches the backend on Vercel (only /api is routed to
+    // it), so a backend-side file would 404 as SPA HTML.
+    await insert('Seminar 2026', '/images/gallery-placeholder.svg', 'Events')
+    await insert('Temple Visit', '/images/gallery-placeholder.svg', 'Events')
+    await insert('Client Session', '/images/gallery-placeholder.svg', 'Work')
+    await insert('Certificate', '/images/gallery-placeholder.svg', 'Awards')
+    await insert('Workshop', '/images/gallery-placeholder.svg', 'Events')
+    await insert('Award Ceremony', '/images/gallery-placeholder.svg', 'Awards')
+    await insert('Media Interview', '/images/gallery-placeholder.svg', 'Media')
+    await insert('Annual Puja', '/images/gallery-placeholder.svg', 'Events')
   }
 
   // query(), not run() — run() appends RETURNING id, but app_meta's primary key is `key`.
