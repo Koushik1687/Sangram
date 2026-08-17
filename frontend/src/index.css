@@ -319,6 +319,8 @@ section{ position:relative; padding:72px 0; }
   transition:opacity .25s var(--ease), visibility .25s;
   box-shadow:-30px 0 60px rgba(0,0,0,.55);
   overflow:hidden;
+  overscroll-behavior:contain;
+  touch-action:pan-y;
   padding:calc(18px + env(safe-area-inset-top,0px)) 14px calc(22px + env(safe-area-inset-bottom,0px));
 }
 .mobile-panel.open{
@@ -455,6 +457,9 @@ section{ position:relative; padding:72px 0; }
   flex:1 1 auto;
   min-height:0;
   overflow-y:auto;
+  overscroll-behavior-y:contain;
+  -webkit-overflow-scrolling:touch;
+  touch-action:pan-y;
   display:flex; flex-direction:column;
   gap:18px;
   padding:0 0 18px;

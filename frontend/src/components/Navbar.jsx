@@ -169,6 +169,15 @@ export default function Navbar() {
     return () => spy.disconnect()
   }, [])
 
+  /* Lock page scroll while the drawer is open so scrolling the menu
+     can't chain to the page behind it. */
+  useEffect(() => {
+    if (!open) return
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prevOverflow }
+  }, [open])
+
   const close = () => setOpen(false)
 
   function handleLogout() {
