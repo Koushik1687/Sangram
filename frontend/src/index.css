@@ -2826,6 +2826,11 @@ html .theme-toggle:active{
 .theme-toggle-sm{ width:34px; height:34px; }
 .theme-toggle-sm svg{ width:16px; height:16px; }
 
+/* On mobile the theme toggle lives in the hamburger drawer only */
+@media (max-width:860px){
+  .theme-toggle{ display:none; }
+}
+
 /* Kundali chart — restore the original navy palette in dark mode */
 html[data-theme="dark"] .kundali-stop-a{ stop-color:#e9cf7d; stop-opacity:.6; }
 html[data-theme="dark"] .kundali-stop-b{ stop-color:#d4af37; stop-opacity:.35; }
