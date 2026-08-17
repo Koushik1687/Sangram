@@ -15,8 +15,10 @@
           var root = document.documentElement
           var saved = null
           try { saved = localStorage.getItem('sree-sangram-theme') } catch (e) {}
-          var theme = saved ||
-            (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          // 'auto' (or no saved value) means "follow the OS preference"
+          var theme = (saved === 'light' || saved === 'dark')
+            ? saved
+            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
           root.setAttribute('data-theme', theme)
           var meta = document.querySelector('meta[name="theme-color"]')
           if (meta) {

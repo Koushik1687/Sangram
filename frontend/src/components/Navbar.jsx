@@ -21,10 +21,61 @@ const LINKS = [
   { href: '#booking', label: 'Contact' },
 ]
 
+/* Mobile drawer menu — grouped like the AstroTalk reference: prominent
+   sign-in on top, then sectioned links, theme control at the bottom. */
+const MENU_GROUPS = [
+  {
+    title: 'Explore',
+    items: [
+      { label: 'About', href: '#about', icon: 'about' },
+      { label: 'Services', href: '#services', icon: 'services' },
+      { label: 'Chambers', href: '#chambers', icon: 'chambers' },
+      { label: 'Gallery', href: '#gallery', icon: 'gallery' },
+    ],
+  },
+  {
+    title: 'Consult',
+    items: [
+      { label: 'Horoscope', href: '#horoscope', icon: 'horoscope' },
+      { label: 'Appointment', href: '#booking', icon: 'booking' },
+    ],
+  },
+  {
+    title: 'Shop & more',
+    items: [
+      { label: 'Shop', href: '/shop', icon: 'shop' },
+      { label: 'Blog', href: '#blog', icon: 'blog' },
+    ],
+  },
+]
+
+const MENU_ICONS = {
+  about: 'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Zm0-12.5v.5M12 12v5',
+  services: 'M12 2.5 13.7 9 20 10.7 13.7 12.4 12 18.9 10.3 12.4 4 10.7 10.3 9 12 2.5Z',
+  chambers: 'M12 21.5s-7.2-5.8-7.2-11.3a7.2 7.2 0 0 1 14.4 0c0 5.5-7.2 11.3-7.2 11.3Zm0-8.8a2.7 2.7 0 1 0 0-5.4 2.7 2.7 0 0 0 0 5.4Z',
+  gallery: 'M4 4.5h16v15H4v-15Zm2.5 12 4-5.2 3 3.2 3.2-4.4L19.5 16M9 9.3a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8Z',
+  horoscope: 'M12 2.5v2M12 19.5v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2.5 12h2M19.5 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4M12 6.2a5.8 5.8 0 1 0 0 11.6 5.8 5.8 0 0 0 0-11.6Z',
+  booking: 'M8 2.5v4M16 2.5v4M3.5 8.5h17M5 4.5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z',
+  shop: 'M6.5 2.5 3 6.5v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-13l-3.5-4h-11ZM3.5 6.5h17M16 10.5a4 4 0 0 1-8 0',
+  blog: 'M4.5 19.5A2.5 2.5 0 0 1 7 17H20V4.5a2 2 0 0 0-2-2H7a2.5 2.5 0 0 0-2.5 2.5v14.5ZM4.5 19.5A2.5 2.5 0 0 0 7 22h13v-5',
+}
+
+function MenuIcon({ name }) {
+  return (
+    <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={MENU_ICONS[name]} />
+    </svg>
+  )
+}
+
 /* Brand-styled theme toggle: shows the moon in light mode (switch to dark)
    and the sun in dark mode (switch to light). Icons crossfade via CSS. */
 function ThemeToggleButton({ theme, onClick, small }) {
-  const dark = theme === 'dark'
+  const osDark =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-color-scheme: dark)').matches
+  const dark = theme === 'dark' || (theme === 'auto' && osDark)
   return (
     <button
       type="button"
@@ -48,11 +99,12 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false)
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [theme, setTheme] = useState(() =>
-    typeof document !== 'undefined'
-      ? document.documentElement.getAttribute('data-theme') || 'light'
-      : 'light',
-  )
+  const [theme, setTheme] = useState(() => {
+    if (typeof document === 'undefined') return 'auto'
+    let saved = null
+    try { saved = localStorage.getItem('sree-sangram-theme') } catch (e) { /* ignore */ }
+    return saved === 'light' || saved === 'dark' ? saved : 'auto'
+  })
   const navRef = useRef(null)
   const { user, logout } = useAuth()
   const { count, openCart } = useCart()
@@ -116,7 +168,12 @@ export default function Navbar() {
   }
 
   function applyTheme(next) {
-    flipTheme(next)
+    if (next === 'auto') {
+      const osDark = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches
+      flipTheme(osDark ? 'dark' : 'light')
+    } else {
+      flipTheme(next)
+    }
     try {
       localStorage.setItem('sree-sangram-theme', next)
     } catch (e) { /* storage unavailable — theme still applies for this session */ }
@@ -124,7 +181,10 @@ export default function Navbar() {
   }
 
   function toggleTheme() {
-    applyTheme(theme === 'light' ? 'dark' : 'light')
+    const cur = theme === 'auto'
+      ? (typeof window.matchMedia === 'function' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+      : theme
+    applyTheme(cur === 'light' ? 'dark' : 'light')
   }
 
   /* Follow the OS theme until the visitor makes an explicit choice */
@@ -134,9 +194,8 @@ export default function Navbar() {
     const onChange = (e) => {
       let saved = null
       try { saved = localStorage.getItem('sree-sangram-theme') } catch (err) { /* ignore */ }
-      if (saved) return
+      if (saved === 'light' || saved === 'dark') return
       flipTheme(e.matches ? 'dark' : 'light')
-      setTheme(e.matches ? 'dark' : 'light')
     }
     if (mq.addEventListener) mq.addEventListener('change', onChange)
     else if (mq.addListener) mq.addListener(onChange) // legacy Safari
@@ -211,29 +270,68 @@ export default function Navbar() {
         </div>
         <div id="mobile-panel" ref={navRef} className={`mobile-panel${open ? ' open' : ''}`}>
           <div className="mobile-panel-head">
-            <ThemeToggleButton theme={theme} onClick={toggleTheme} small />
+            <SectionNavLink href="#hero" className="brand" onClick={close}>
+              <span className="brand-mark">
+                <img src="/images/logo/Sree Sangram logo.png" alt="Sree Sangram Logo" decoding="async" />
+              </span>
+              <span className="brand-text"><span className="en">শ্রী সংগ্রাম</span></span>
+            </SectionNavLink>
             <button className="mobile-close" aria-label="Close menu" onClick={close}>✕</button>
           </div>
-          <nav className="mobile-panel-nav">
-            {LINKS.map((l) =>
-              l.href.startsWith('/') ? (
-                <Link key={l.href} to={l.href} onClick={close}>{l.label}</Link>
-              ) : (
-                <SectionNavLink key={l.href} href={l.href} onClick={close}>{l.label}</SectionNavLink>
-              ),
-            )}
-            <SectionNavLink href="#gallery" onClick={close}>Gallery</SectionNavLink>
-          </nav>
-          <div className="mobile-panel-cta">
+
+          <div className="mobile-auth">
             {user ? (
-              <>
-                <Link to="/account" onClick={close}>👤 &nbsp;{user.name} — My orders</Link>
-                <button type="button" onClick={handleLogout}>Log out</button>
-              </>
+              <div className="mobile-auth-user">
+                <span className="account-avatar">{user.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                <span className="mobile-auth-user-name">{user.name?.split(' ')[0]}</span>
+                <Link to="/account" className="mobile-auth-link" onClick={close}>My account</Link>
+                <button type="button" className="mobile-auth-logout" onClick={handleLogout}>Log out</button>
+              </div>
             ) : (
-              <Link to="/login" onClick={close}>✦ &nbsp;Login / Register</Link>
+              <Link to="/login" className="mobile-auth-btn" onClick={close}>
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
+                </svg>
+                <span>Sign In / Sign up</span>
+              </Link>
             )}
-            <SectionNavLink href="#booking" onClick={close}>✦ &nbsp;Appointment</SectionNavLink>
+          </div>
+
+          <nav className="mobile-panel-nav">
+            {MENU_GROUPS.map((g) => (
+              <div className="mobile-nav-group" key={g.title}>
+                <h3 className="mobile-nav-title">{g.title}</h3>
+                {g.items.map((it) => {
+                  const inner = (<><MenuIcon name={it.icon} /><span>{it.label}</span></>)
+                  return it.href.startsWith('/')
+                    ? <Link key={it.label} to={it.href} onClick={close}>{inner}</Link>
+                    : <SectionNavLink key={it.label} href={it.href} onClick={close}>{inner}</SectionNavLink>
+                })}
+              </div>
+            ))}
+          </nav>
+
+          <div className="mobile-theme">
+            <span className="mobile-theme-label">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+              </svg>
+              Theme
+            </span>
+            <div className="mobile-theme-opts" role="group" aria-label="Theme">
+              {['auto', 'light', 'dark'].map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={theme === t ? 'active' : ''}
+                  onClick={() => applyTheme(t)}
+                  aria-pressed={theme === t}
+                >
+                  {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
