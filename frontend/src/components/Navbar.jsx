@@ -6,6 +6,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
+import { api } from '../lib/api'
 import { useCart } from '../lib/cart'
 import { imageUrl } from '../lib/data'
 import { SIGNS } from '../lib/horoscope'
@@ -116,6 +117,27 @@ export default function Navbar() {
   const zodiacGlyph = user?.zodiac_sign
     ? (SIGNS.find((s) => s.n === user.zodiac_sign)?.glyph || null)
     : null
+  /* Number of orders awaiting payment — shown as a gold badge on the drawer's
+     "My orders" row. Refetches whenever the session changes. */
+  const [pendingOrders, setPendingOrders] = useState(0)
+  useEffect(() => {
+    if (!user) {
+      setPendingOrders(0)
+      return undefined
+    }
+    let live = true
+    api
+      .get('/orders', { customer: true })
+      .then((orders) => {
+        if (!live) return
+        const n = (Array.isArray(orders) ? orders : []).filter(
+          (o) => String(o.status || '').toUpperCase() === 'PENDING',
+        ).length
+        setPendingOrders(n)
+      })
+      .catch(() => { if (live) setPendingOrders(0) })
+    return () => { live = false }
+  }, [user])
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -310,6 +332,7 @@ export default function Navbar() {
                   <Link to="/account?tab=orders" onClick={close}>
                     <MenuIcon name="shop" />
                     <span>My orders</span>
+                    {pendingOrders > 0 && <span className="mobile-auth-badge">{pendingOrders}</span>}
                   </Link>
                   <button type="button" onClick={handleLogout}>
                     <MenuIcon name="logout" />

@@ -436,6 +436,20 @@ section{ position:relative; padding:72px 0; }
   opacity:.65;
   font-size:1.1rem;
 }
+/* Pending-order badge — when present, the badge takes the right edge and
+   the arrow sits right after it. */
+.mobile-auth-badge{
+  margin-left:auto;
+  min-width:20px; height:20px;
+  padding:0 6px;
+  border-radius:999px;
+  background:linear-gradient(135deg,var(--gold-light),var(--gold));
+  color:var(--gold-ink);
+  font-size:.72rem; font-weight:700; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(212,175,55,.35);
+}
+.mobile-auth-links a:has(.mobile-auth-badge)::after{ margin-left:8px; }
 .mobile-auth-links a:hover, .mobile-auth-links button:hover{
   color:var(--text); border-color:var(--gold-dim); background:rgba(212,175,55,.07);
 }
