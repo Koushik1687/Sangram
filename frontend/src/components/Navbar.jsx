@@ -7,6 +7,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { useCart } from '../lib/cart'
+import { imageUrl } from '../lib/data'
+import { SIGNS } from '../lib/horoscope'
 import CartDrawer from './CartDrawer'
 import BottomNav from './BottomNav'
 import SectionNavLink from './SectionNavLink'
@@ -58,6 +60,8 @@ const MENU_ICONS = {
   booking: 'M8 2.5v4M16 2.5v4M3.5 8.5h17M5 4.5h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-13a2 2 0 0 1 2-2Z',
   shop: 'M6.5 2.5 3 6.5v13a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-13l-3.5-4h-11ZM3.5 6.5h17M16 10.5a4 4 0 0 1-8 0',
   blog: 'M4.5 19.5A2.5 2.5 0 0 1 7 17H20V4.5a2 2 0 0 0-2-2H7a2.5 2.5 0 0 0-2.5 2.5v14.5ZM4.5 19.5A2.5 2.5 0 0 0 7 22h13v-5',
+  user: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4.5 21c0-3.3 3.4-5.5 7.5-5.5s7.5 2.2 7.5 5.5',
+  logout: 'M14 8V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-3M9 12h11M17 8l4 4-4 4',
 }
 
 function MenuIcon({ name }) {
@@ -109,6 +113,9 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const { count, openCart } = useCart()
   const navigate = useNavigate()
+  const zodiacGlyph = user?.zodiac_sign
+    ? (SIGNS.find((s) => s.n === user.zodiac_sign)?.glyph || null)
+    : null
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40)
@@ -281,12 +288,35 @@ export default function Navbar() {
 
           <div className="mobile-auth">
             {user ? (
-              <div className="mobile-auth-user">
-                <span className="account-avatar">{user.name?.charAt(0)?.toUpperCase() || 'U'}</span>
-                <span className="mobile-auth-user-name">{user.name?.split(' ')[0]}</span>
-                <Link to="/account" className="mobile-auth-link" onClick={close}>My account</Link>
-                <button type="button" className="mobile-auth-logout" onClick={handleLogout}>Log out</button>
-              </div>
+              <>
+                <div className="mobile-auth-user">
+                  <span className="account-avatar">
+                    {user.photo_url
+                      ? <img src={imageUrl(user.photo_url)} alt="" />
+                      : user.name?.charAt(0)?.toUpperCase() || 'U'}
+                  </span>
+                  <span className="mobile-auth-user-meta">
+                    <span className="mobile-auth-user-name">{user.name}</span>
+                    <span className="mobile-auth-user-sub">
+                      {zodiacGlyph ? `${zodiacGlyph} ${user.zodiac_sign}` : user.email}
+                    </span>
+                  </span>
+                </div>
+                <nav className="mobile-auth-links">
+                  <Link to="/account" onClick={close}>
+                    <MenuIcon name="user" />
+                    <span>My account</span>
+                  </Link>
+                  <Link to="/account?tab=orders" onClick={close}>
+                    <MenuIcon name="shop" />
+                    <span>My orders</span>
+                  </Link>
+                  <button type="button" onClick={handleLogout}>
+                    <MenuIcon name="logout" />
+                    <span>Log out</span>
+                  </button>
+                </nav>
+              </>
             ) : (
               <Link to="/login" className="mobile-auth-btn" onClick={close}>
                 <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

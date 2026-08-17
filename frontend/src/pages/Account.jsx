@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
 import Footer from '../components/Footer'
 import StarField from '../components/StarField'
@@ -43,7 +43,13 @@ const TABS = [
 export default function Account() {
   const { user, ready, logout, updateUser } = useAuth()
   const navigate = useNavigate()
-  const [tab, setTab] = useState('profile')
+  /* Deep-link support: /account?tab=orders opens the orders tab (the mobile
+     drawer's "My orders" link uses it). Falls back to the profile tab. */
+  const [params] = useSearchParams()
+  const [tab, setTab] = useState(() => {
+    const t = params.get('tab')
+    return TABS.some((x) => x.key === t) ? t : 'profile'
+  })
 
   const [orders, setOrders] = useState(null)
   const [bookings, setBookings] = useState(null)
