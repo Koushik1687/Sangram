@@ -4,6 +4,7 @@
    dedicated shop page and a customer account chip is shown when logged in.
    ========================================================================== */
 import { useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../lib/auth'
 import { api } from '../lib/api'
@@ -297,7 +298,12 @@ export default function Navbar() {
             <span></span><span></span><span></span>
           </button>
         </div>
-        <div id="mobile-panel" ref={navRef} className={`mobile-panel${open ? ' open' : ''}`}>
+        {/* The drawer is portaled to <body>: #navbar has backdrop-filter, which
+            would otherwise become the containing block for this fixed element
+            and shrink the drawer to the navbar's height (a 75px strip on
+            phones). At body level it gets the real viewport height. */}
+        {createPortal(
+          <div id="mobile-panel" ref={navRef} className={`mobile-panel${open ? ' open' : ''}`}>
           <div className="mobile-panel-head">
             <SectionNavLink href="#hero" className="brand" onClick={close}>
               <span className="brand-mark">
@@ -386,7 +392,9 @@ export default function Navbar() {
               ))}
             </div>
           </div>
-        </div>
+          </div>,
+          document.body,
+        )}
       </header>
       <div
         id="mobile-overlay"
