@@ -340,12 +340,13 @@ async function seedData() {
     if (initialPass.length < 8) {
       console.warn('[seed] ADMIN_INITIAL_PASSWORD ignored — must be at least 8 characters')
     } else {
-      const hash = bcrypt.hashSync(initialPass, 10)
+      // Create the admin only when the account does not exist yet. Once an
+      // admin exists, its password is owned by the database (rotated with
+      // `npm run create:admin`); ADMIN_INITIAL_PASSWORD must never overwrite
+      // a live password on every cold start.
       const existing = await get('SELECT id FROM admins WHERE username = ?', [initialUser])
-      if (existing) {
-        await run('UPDATE admins SET password_hash = ? WHERE id = ?', [hash, existing.id])
-        console.log(`[seed] Updated admin "${initialUser}" password from ADMIN_INITIAL_PASSWORD`)
-      } else {
+      if (!existing) {
+        const hash = bcrypt.hashSync(initialPass, 10)
         await run('INSERT INTO admins (username, password_hash) VALUES (?, ?)', [initialUser, hash])
         console.log(`[seed] Created admin "${initialUser}" from ADMIN_INITIAL_PASSWORD`)
       }
