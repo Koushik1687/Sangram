@@ -88,7 +88,16 @@ app.route('/api/notifications', notificationRoutes)
 app.route('/api/shipping', shippingRoutes)
 app.route('/api/images', imageRoutes)
 
-// Health check
+// Health check — also the API root, so visiting /api directly shows a friendly
+// index instead of a bare 404 ("backend not working").
+app.get('/api', (c) => c.json({
+  name: 'Sree Sangram API',
+  status: 'ok',
+  health: '/api/health',
+  docs: '/api/docs',
+  spec: '/api/spec',
+  time: new Date().toISOString(),
+}))
 app.get('/api/health', (c) => c.json({ status: 'ok', time: new Date().toISOString() }))
 
 // --- OpenAPI ---
