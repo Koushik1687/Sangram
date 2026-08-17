@@ -6,7 +6,53 @@ import { useEffect, useMemo, useState } from 'react'
 import { api } from '../lib/api'
 import { useCollection } from '../lib/data'
 
-const SLOTS = ['11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:30 PM', '4:30 PM', '5:30 PM', '6:30 PM']
+function parseTimeToMinutes(timeStr) {
+  if (!timeStr) return null
+  const m = timeStr.trim().match(/^(\d{1,2}):?(\d{2})?\s*(AM|PM)?$/i)
+  if (!m) return null
+  let hours = parseInt(m[1], 10)
+  const minutes = m[2] ? parseInt(m[2], 10) : 0
+  const meridian = m[3] ? m[3].toUpperCase() : (hours < 8 ? 'PM' : 'AM')
+
+  if (meridian === 'PM' && hours < 12) hours += 12
+  if (meridian === 'AM' && hours === 12) hours = 0
+
+  return hours * 60 + minutes
+}
+
+function minutesToTimeString(totalMinutes) {
+  let hours = Math.floor(totalMinutes / 60)
+  const minutes = totalMinutes % 60
+  const meridian = hours >= 12 ? 'PM' : 'AM'
+
+  hours = hours % 12
+  if (hours === 0) hours = 12
+
+  const minStr = minutes === 0 ? '00' : String(minutes).padStart(2, '0')
+  return `${hours}:${minStr} ${meridian}`
+}
+
+function generateSlotsFromTiming(timingStr, stepMinutes = 60) {
+  const DEFAULT_SLOTS = ['11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:30 PM', '4:30 PM', '5:30 PM', '6:30 PM']
+  if (!timingStr) return DEFAULT_SLOTS
+
+  const parts = timingStr.split(/[–\-—]| to /i).map((s) => s.trim()).filter(Boolean)
+  if (parts.length < 2) return DEFAULT_SLOTS
+
+  let startMin = parseTimeToMinutes(parts[0])
+  let endMin = parseTimeToMinutes(parts[1])
+  if (startMin == null || endMin == null) return DEFAULT_SLOTS
+
+  if (endMin < startMin) endMin += 12 * 60
+
+  const slots = []
+  for (let m = startMin; m <= endMin; m += stepMinutes) {
+    slots.push(minutesToTimeString(m))
+  }
+
+  return slots.length > 0 ? slots : DEFAULT_SLOTS
+}
+
 const SERVICES = [
   'Horoscope Reading', 'Kundali Analysis', 'Marriage Guidance', 'Career Guidance',
   'Business Astrology', 'Gemstone Guidance', 'Vastu Guidance', 'Numerology',
@@ -23,7 +69,7 @@ export default function BookingForm() {
   const [chamberId, setChamberId] = useState('')
   const [date, setDate] = useState('')
   const [slot, setSlot] = useState('')
-  const [taken, setTaken] = useState([])
+  const [slotList, setSlotList] = useState([])
   const [msg, setMsg] = useState(null)
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), [])
@@ -39,20 +85,24 @@ export default function BookingForm() {
   /* Fetch available slots whenever chamber or date changes */
   useEffect(() => {
     let live = true
-    setTaken([])
     setSlot('')
     if (!chamberId || !date) return
+
+    const curChamber = chambers.find((c) => String(c.id) === String(chamberId))
+    const baseline = generateSlotsFromTiming(curChamber?.timing || curChamber?.hours)
+    setSlotList(baseline.map((s) => ({ slot: s, available: true })))
+
     api
       .get(`/bookings/slots?chamber_id=${encodeURIComponent(chamberId)}&date=${encodeURIComponent(date)}`)
       .then((rows) => {
-        if (!live || !Array.isArray(rows)) return
-        setTaken(rows.filter((s) => !s.available).map((s) => s.slot))
+        if (!live || !Array.isArray(rows) || !rows.length) return
+        setSlotList(rows)
       })
       .catch(() => {
-        /* backend down — all slots treated as available */
+        /* backend down — keep baseline slots */
       })
     return () => { live = false }
-  }, [chamberId, date])
+  }, [chamberId, date, chambers])
 
   const chamber = chambers.find((c) => String(c.id) === String(chamberId))
   const mapLocation = chamber?.locationByDay?.[getWeekday(date)] || chamber?.address || 'Kolkata'
@@ -179,10 +229,17 @@ export default function BookingForm() {
             <input type="date" id="bookDate" name="date" min={today} value={date} onChange={(e) => setDate(e.target.value)} required />
           </div>
           <div className="field full">
-            <label>Available time slots</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+              <label>Available time slots</label>
+              {(chamber?.timing || chamber?.hours) && (
+                <span style={{ fontSize: '.76rem', color: 'var(--gold-soft)', fontWeight: '500' }}>
+                  Schedule: {chamber.timing || chamber.hours}
+                </span>
+              )}
+            </div>
             <div className="slot-grid" id="slotGrid">
-              {SLOTS.map((s) => {
-                const isTaken = taken.includes(s)
+              {slotList.map(({ slot: s, available }) => {
+                const isTaken = !available
                 return (
                   <label key={s} className={`slot${isTaken ? ' taken' : ''}`}>
                     <input
