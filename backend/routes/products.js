@@ -91,7 +91,11 @@ const uploadImageRouteDef = createRoute({
 })
 
 router.openapi(listRoute, async (c) => {
-  return c.json(await query('SELECT * FROM products WHERE is_active=1 ORDER BY id DESC'))
+  // Explicit column list — image_data (BYTEA) is served on demand via
+  // /api/images/products/:id and must not be serialized into every list call.
+  return c.json(await query(
+    'SELECT id, name, category, price, description, image_url, stock, low_stock_threshold, low_stock_alerted, is_active, created_at FROM products WHERE is_active=1 ORDER BY id DESC',
+  ))
 })
 
 router.openapi(createRouteDef, async (c) => {
@@ -126,7 +130,10 @@ router.openapi(uploadImageRouteDef, async (c) => {
   if (!product) return c.json({ error: 'Product not found' }, 404)
 
   await storeImage({ table: 'products', id: product.id, file: image })
-  return c.json(await get('SELECT * FROM products WHERE id = ?', [product.id]))
+  return c.json(await get(
+    'SELECT id, name, category, price, description, image_url, stock, low_stock_threshold, low_stock_alerted, is_active, created_at FROM products WHERE id = ?',
+    [product.id],
+  ))
 })
 
 export default router

@@ -19,7 +19,7 @@ function alertThreshold(product) {
  * cleared again when stock is restored above the threshold.
  */
 export async function maybeSendLowStockAlert(productId) {
-  const product = await get('SELECT * FROM products WHERE id = ?', [productId])
+  const product = await get('SELECT id, name, stock, low_stock_threshold, low_stock_alerted FROM products WHERE id = ?', [productId])
   if (!product || product.stock == null) return
   const threshold = alertThreshold(product)
   if (threshold <= 0) return // alerts disabled for this product

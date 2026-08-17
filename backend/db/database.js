@@ -285,28 +285,36 @@ async function initSchema() {
       is_active INTEGER DEFAULT 1,
       created_at TIMESTAMPTZ DEFAULT now()
     );
+
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
   `)
 
-  // Migrations for databases created before a column existed (no-ops on fresh DBs).
-  await exec(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS order_id INTEGER`)
-  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`)
-  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount REAL DEFAULT 0`)
-  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT`)
-  await exec(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_fee REAL DEFAULT 0`)
-  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT`)
-  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER`)
-  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS zodiac_sign TEXT`)
-  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER`)
-  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER`)
-  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_alerted INTEGER DEFAULT 0`)
-
-  // Image bytes live in the database (Vercel's filesystem is ephemeral).
-  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_data BYTEA`)
-  await exec(`ALTER TABLE products ADD COLUMN IF NOT EXISTS image_mime TEXT`)
-  await exec(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data BYTEA`)
-  await exec(`ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime TEXT`)
-  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_data BYTEA`)
-  await exec(`ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_mime TEXT`)
+  /* Migrations for databases created before a column existed (no-ops on fresh
+     DBs). Kept as a single multi-statement exec — on serverless this whole
+     init runs once per cold instance, and every extra round-trip to a cold
+     Neon connection adds ~100-300ms of latency. */
+  await exec(`
+    ALTER TABLE payments ADD COLUMN IF NOT EXISTS order_id INTEGER;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS discount REAL DEFAULT 0;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS coupon_code TEXT;
+    ALTER TABLE orders ADD COLUMN IF NOT EXISTS shipping_fee REAL DEFAULT 0;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_url TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS age INTEGER;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS zodiac_sign TEXT;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS stock INTEGER;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS low_stock_alerted INTEGER DEFAULT 0;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS image_data BYTEA;
+    ALTER TABLE products ADD COLUMN IF NOT EXISTS image_mime TEXT;
+    ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_data BYTEA;
+    ALTER TABLE gallery ADD COLUMN IF NOT EXISTS image_mime TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_data BYTEA;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS photo_mime TEXT;
+  `)
 }
 
 async function seedData() {
@@ -347,6 +355,15 @@ async function seedData() {
   const adminCount = Number((await get('SELECT COUNT(*) AS n FROM admins')).n)
   if (adminCount === 0) {
     console.warn('[seed] No admin accounts exist. Set ADMIN_INITIAL_PASSWORD or run `npm run create:admin` to create one.')
+  }
+
+  /* Static demo content below is idempotent and only needs to run once per
+     database. A marker row lets every later cold start skip the ~12 count
+     checks — on serverless this seed runs once per function instance, so it
+     is a big chunk of the first-request latency. */
+  if (await get(`SELECT value FROM app_meta WHERE key='seeded'`)) {
+    console.log('[seed] Database already seeded — skipping demo content')
+    return
   }
 
   // Seed the shop taxonomy (top-level categories) on first run
@@ -454,4 +471,8 @@ async function seedData() {
     await insert('Media Interview', '/uploads/placeholder.jpg', 'Media')
     await insert('Annual Puja', '/uploads/placeholder.jpg', 'Events')
   }
+
+  // query(), not run() — run() appends RETURNING id, but app_meta's primary key is `key`.
+  await query(`INSERT INTO app_meta (key, value) VALUES ('seeded', '1') ON CONFLICT (key) DO NOTHING`)
+  console.log('[seed] Demo content seeded')
 }

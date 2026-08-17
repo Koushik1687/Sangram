@@ -265,7 +265,7 @@ router.openapi(googleRoute, async (c) => {
   }
 
   const email = profile.email.toLowerCase()
-  let user = await get('SELECT * FROM users WHERE lower(email) = ?', [email])
+  let user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE lower(email) = ?', [email])
 
   if (!user) {
     /* New customer — create the account. A random password hash keeps the row
@@ -276,7 +276,7 @@ router.openapi(googleRoute, async (c) => {
       'INSERT INTO users (name, email, phone, password_hash, photo_url) VALUES (?, ?, ?, ?, ?)',
       [profile.name || email.split('@')[0], email, '', hash, profile.picture || ''],
     )
-    user = await get('SELECT * FROM users WHERE id = ?', [r.lastInsertRowid])
+    user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [r.lastInsertRowid])
   }
 
   return c.json({ token: customerToken(user), user: publicUser(user) })
@@ -292,13 +292,13 @@ router.openapi(registerRoute, async (c) => {
   const r = await run('INSERT INTO users (name, email, phone, password_hash) VALUES (?, ?, ?, ?)',
     [name, email.toLowerCase(), phone || '', hash])
 
-  const user = publicUser(await get('SELECT * FROM users WHERE id = ?', [r.lastInsertRowid]))
+  const user = publicUser(await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [r.lastInsertRowid]))
   return c.json({ token: customerToken(user), user })
 })
 
 router.openapi(loginRoute, async (c) => {
   const { email, password } = c.req.valid('json')
-  const user = await get('SELECT * FROM users WHERE lower(email) = lower(?)', [email])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE lower(email) = lower(?)', [email])
   if (!user || !bcrypt.compareSync(password, user.password_hash)) {
     return c.json({ error: 'Invalid email or password' }, 401)
   }
@@ -307,14 +307,14 @@ router.openapi(loginRoute, async (c) => {
 
 router.openapi(meRoute, async (c) => {
   const { id } = c.get('user')
-  const user = await get('SELECT * FROM users WHERE id = ?', [id])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
   return c.json(publicUser(user))
 })
 
 router.openapi(updateRoute, async (c) => {
   const { id } = c.get('user')
-  const user = await get('SELECT * FROM users WHERE id = ?', [id])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { name, phone, age, zodiac_sign } = c.req.valid('json')
@@ -327,12 +327,12 @@ router.openapi(updateRoute, async (c) => {
   await run('UPDATE users SET name=?, phone=?, age=?, zodiac_sign=? WHERE id=?',
     [next.name, next.phone, next.age, next.zodiac_sign, id])
 
-  return c.json(publicUser(await get('SELECT * FROM users WHERE id = ?', [id])))
+  return c.json(publicUser(await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])))
 })
 
 router.openapi(photoRoute, async (c) => {
   const { id } = c.get('user')
-  const user = await get('SELECT * FROM users WHERE id = ?', [id])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { photo } = c.req.valid('form')
@@ -342,12 +342,12 @@ router.openapi(photoRoute, async (c) => {
 
   await storeImage({ table: 'users', id, file: photo })
 
-  return c.json(publicUser(await get('SELECT * FROM users WHERE id = ?', [id])))
+  return c.json(publicUser(await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])))
 })
 
 router.openapi(passwordRoute, async (c) => {
   const { id } = c.get('user')
-  const user = await get('SELECT * FROM users WHERE id = ?', [id])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const { current_password, new_password } = c.req.valid('json')
@@ -360,7 +360,7 @@ router.openapi(passwordRoute, async (c) => {
 
 router.openapi(bookingsRoute, async (c) => {
   const { id } = c.get('user')
-  const user = await get('SELECT * FROM users WHERE id = ?', [id])
+  const user = await get('SELECT id, name, email, phone, password_hash, photo_url, age, zodiac_sign, created_at FROM users WHERE id = ?', [id])
   if (!user) return c.json({ error: 'Account not found' }, 401)
 
   const phone = (user.phone || '').trim()

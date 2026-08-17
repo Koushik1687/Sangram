@@ -111,7 +111,7 @@ router.openapi(createOrderRoute, async (c) => {
   const resolved = []
   let subtotal = 0
   for (const it of items) {
-    const product = await get('SELECT * FROM products WHERE id = ? AND is_active = 1', [it.product_id])
+    const product = await get('SELECT id, name, price, stock FROM products WHERE id = ? AND is_active = 1', [it.product_id])
     if (!product) return c.json({ error: `Product ${it.product_id} is not available` }, 400)
     const qty = Math.max(1, Math.min(99, it.quantity || 1))
     const stock = product.stock == null ? null : Number(product.stock)

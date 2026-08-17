@@ -55,7 +55,8 @@ const deleteRouteDef = createRoute({
 })
 
 router.openapi(listRoute, async (c) => {
-  return c.json(await query('SELECT * FROM gallery ORDER BY uploaded_at DESC'))
+  // image_data (BYTEA) is served on demand via /api/images/gallery/:id
+  return c.json(await query('SELECT id, label, image_url, category, uploaded_at FROM gallery ORDER BY uploaded_at DESC'))
 })
 
 router.openapi(createRouteDef, async (c) => {
