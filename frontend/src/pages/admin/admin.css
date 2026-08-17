@@ -24,6 +24,11 @@
 .login-card .brand-mark{ margin:0 auto 18px; }
 .login-card .brand-mark{ width:56px; height:56px; display:flex; }
 .login-card h1{ font-size:1.4rem; margin-bottom:4px; }
+.login-card h1 .admin-title-en{
+  font-size:.68em; font-weight:600; letter-spacing:.08em;
+  color:var(--text-muted); text-transform:uppercase;
+  display:inline-block; margin-left:8px; vertical-align:middle;
+}
 .login-card p{ color:var(--text-muted); font-size:.86rem; margin-bottom:30px; }
 .login-card .field{ text-align:left; margin-bottom:16px; }
 .login-hint{ margin-top:18px; font-size:.72rem; color:var(--text-dim); }

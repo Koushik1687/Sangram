@@ -52,7 +52,7 @@ export default function AdminLogin() {
           <span className="brand-mark">
             <img src="/images/logo/Sree Sangram logo.png" alt="Sree Sangram Logo" decoding="async" />
           </span>
-          <h1>শ্রী সংগ্রাম অ্যাডমিন</h1>
+          <h1>শ্রী সংগ্রাম <span className="admin-title-en">Admin</span></h1>
           <p>Sign in to access the dashboard.</p>
           <form id="loginForm" onSubmit={submit}>
             <div className="field">
