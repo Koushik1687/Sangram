@@ -71,21 +71,7 @@ const TIME_OPTIONS = [
   '08:00 PM', '08:30 PM', '09:00 PM',
 ]
 
-const TIMETABLE_PRESETS = [
-  { label: 'Full Day (11 AM – 7 PM)', value: '11:00 AM – 7:00 PM', from: '11:00 AM', to: '07:00 PM' },
-  { label: 'Morning (10 AM – 2 PM)', value: '10:00 AM – 2:00 PM', from: '10:00 AM', to: '02:00 PM' },
-  { label: 'Afternoon (12 PM – 6 PM)', value: '12:00 PM – 6:00 PM', from: '12:00 PM', to: '06:00 PM' },
-  { label: 'Evening (4 PM – 8 PM)', value: '4:00 PM – 8:00 PM', from: '04:00 PM', to: '08:00 PM' },
-]
-
 const DAYS_LIST = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
-const DAYS_PRESETS = [
-  'Mon – Sat',
-  'Tue, Thu, Sat',
-  'Wed, Sun',
-  'Mon – Fri',
-  'All Days (Mon – Sun)',
-]
 
 function parseTiming(val) {
   if (!val) return { from: '11:00 AM', to: '07:00 PM' }
@@ -101,12 +87,6 @@ function ChamberTimingInput({ name, label, defaultValue, required }) {
   const [from, setFrom] = useState(parsed.from)
   const [to, setTo] = useState(parsed.to)
   const [timingVal, setTimingVal] = useState(defaultValue || `${parsed.from} – ${parsed.to}`)
-
-  const applyPreset = (preset) => {
-    setFrom(preset.from)
-    setTo(preset.to)
-    setTimingVal(preset.value)
-  }
 
   const updateFrom = (newFrom) => {
     setFrom(newFrom)
@@ -148,22 +128,6 @@ function ChamberTimingInput({ name, label, defaultValue, required }) {
               ))}
             </select>
           </div>
-        </div>
-
-        <div className="timetable-presets">
-          {TIMETABLE_PRESETS.map((p) => {
-            const isActive = timingVal === p.value
-            return (
-              <button
-                key={p.value}
-                type="button"
-                className={`timetable-chip${isActive ? ' active' : ''}`}
-                onClick={() => applyPreset(p)}
-              >
-                {p.label}
-              </button>
-            )
-          })}
         </div>
 
         <div className="timetable-preview-wrap">
@@ -216,18 +180,6 @@ function ChamberDaysInput({ name, label, defaultValue, required }) {
               </button>
             )
           })}
-        </div>
-        <div className="days-presets">
-          {DAYS_PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              className={`timetable-chip${daysText === p ? ' active' : ''}`}
-              onClick={() => setDaysText(p)}
-            >
-              {p}
-            </button>
-          ))}
         </div>
         <input
           type="text"
