@@ -190,6 +190,11 @@ export default function AdminDashboard() {
   const [openClients, setOpenClients] = useState({})
   const [overrides, setOverrides] = useState({})
   const [modal, setModal] = useState(null)
+  const [modalBusy, setModalBusy] = useState(false)
+  /* Synchronous guard against double/triple-taps: React state updates are
+     batched, so a ref is the only thing that blocks a second submit in the
+     same tick (a plain state check lets rapid taps create duplicate rows). */
+  const modalBusyRef = useRef(false)
   const [confirm, setConfirm] = useState(null)
   const [productQuery, setProductQuery] = useState('')
   const [digestMsg, setDigestMsg] = useState('')
@@ -358,6 +363,9 @@ export default function AdminDashboard() {
 
   function saveEntity(e) {
     e.preventDefault()
+    if (modalBusyRef.current) return // guard against double-taps creating duplicates
+    modalBusyRef.current = true
+    setModalBusy(true)
     const fd = new FormData(e.target)
     const values = {}
     modal.schema.fields.forEach((f) => { values[f.name] = fd.get(f.name) })
@@ -380,10 +388,14 @@ export default function AdminDashboard() {
         done()
       })
       .catch(() => setLoadError('Save failed — please try again.'))
+      .finally(() => { modalBusyRef.current = false; setModalBusy(false) })
   }
 
   function saveHoroscope(e) {
     e.preventDefault()
+    if (modalBusyRef.current) return // guard against double-taps creating duplicates
+    modalBusyRef.current = true
+    setModalBusy(true)
     const fd = new FormData(e.target)
     api
       .put(`/horoscope/${modal.sign.key}`, {
@@ -395,6 +407,7 @@ export default function AdminDashboard() {
       })
       .then(() => { closeModal(); loadAll(); showToast('Horoscope updated') })
       .catch(() => setLoadError('Save failed — please try again.'))
+      .finally(() => { modalBusyRef.current = false; setModalBusy(false) })
   }
 
   function setBookingStatus(id, status) {
@@ -1001,8 +1014,8 @@ export default function AdminDashboard() {
                   )
                 })()}
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={closeModal}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save</button>
+                  <button type="button" className="btn btn-outline" onClick={closeModal} disabled={modalBusy}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={modalBusy}>{modalBusy ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>
             ) : (
@@ -1044,8 +1057,8 @@ export default function AdminDashboard() {
                   )
                 })}
                 <div className="modal-actions">
-                  <button type="button" className="btn btn-outline" onClick={closeModal}>Cancel</button>
-                  <button type="submit" className="btn btn-primary">Save</button>
+                  <button type="button" className="btn btn-outline" onClick={closeModal} disabled={modalBusy}>Cancel</button>
+                  <button type="submit" className="btn btn-primary" disabled={modalBusy}>{modalBusy ? 'Saving…' : 'Save'}</button>
                 </div>
               </form>
             )}

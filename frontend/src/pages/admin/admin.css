@@ -148,6 +148,21 @@ html[data-theme="light"] .icon-btn{ background:rgba(188,131,23,.07); }
 .modal-actions{ display:flex; gap:10px; margin-top:8px; }
 .modal-actions .btn{ flex:1; }
 
+/* The action row stays pinned to the bottom of the modal so Cancel / Save are
+   always visible on small screens — without it the buttons sit below the
+   fold of a scrollable 88vh modal (hidden behind the mobile bottom nav) and
+   users tap blindly, causing missed taps and duplicate saves. */
+.modal .modal-actions{
+  position:sticky; bottom:0; z-index:2;
+  margin:18px -28px -28px; padding:14px 28px 2px;
+  background:var(--surface-raised);
+  border-top:1px solid var(--panel-line);
+}
+.modal .modal-actions .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+@media (max-width:560px){
+  .modal .modal-actions{ margin:16px -18px -22px; padding:12px 18px 0; }
+}
+
 /* ---------- Confirm dialog ---------- */
 .modal-sm{ max-width:400px; }
 .confirm-modal{ text-align:center; }
