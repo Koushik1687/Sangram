@@ -136,33 +136,216 @@ html[data-theme="light"] .icon-btn{ background:rgba(188,131,23,.07); }
 }
 .modal-overlay.open{ opacity:1; visibility:visible; }
 .modal{
-  width:100%; max-width:520px; max-height:calc(100dvh - 40px); overflow-y:auto;
-  background:var(--surface-raised); border:1px solid var(--panel-line); border-radius:var(--radius);
-  padding:28px; transform:translateY(16px); transition:transform .3s var(--ease);
+  width:100%; max-width:540px; max-height:min(88vh, 740px);
+  display:flex; flex-direction:column; overflow:hidden;
+  background:var(--surface-raised); border:1px solid var(--panel-line); border-radius:18px;
   box-shadow:var(--shadow-card);
-  margin:auto;
+  margin:auto; transform:translateY(16px); transition:transform .3s var(--ease);
 }
 .modal-overlay.open .modal{ transform:translateY(0); }
-.modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
-.modal-head h3{ margin:0; font-size:1.05rem; }
-.modal-close{ background:none; border:none; color:var(--text-dim); font-size:1.2rem; }
-.modal .field{ margin-bottom:14px; }
-.modal-actions{ display:flex; gap:10px; margin-top:8px; }
-.modal-actions .btn{ flex:1; }
+.modal-head{
+  flex:none; display:flex; justify-content:space-between; align-items:center;
+  padding:20px 24px 16px; border-bottom:1px solid var(--panel-line);
+}
+.modal-head h3{
+  margin:0; font-size:1.12rem; font-weight:600; color:var(--text); letter-spacing:-.01em;
+}
+.modal-close{
+  width:32px; height:32px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--surface); border:1px solid var(--panel-line);
+  color:var(--text-dim); font-size:1rem; cursor:pointer;
+  transition:all .2s var(--ease);
+}
+.modal-close:hover{ border-color:var(--gold-dim); color:var(--gold-soft); background:var(--surface-hover); }
 
-/* The action row stays pinned to the bottom of the modal so Cancel / Save are
-   always visible on small screens with proper safe-area padding. */
+.modal form{
+  display:flex; flex-direction:column; flex:1; min-height:0; overflow:hidden;
+}
+.modal-body{
+  flex:1; overflow-y:auto; padding:20px 24px 24px;
+  display:flex; flex-direction:column; gap:16px;
+  -webkit-overflow-scrolling:touch;
+}
+.modal .field{ display:flex; flex-direction:column; gap:7px; margin:0; }
+.modal .field label{
+  font-size:.76rem; font-weight:600; letter-spacing:.04em; color:var(--text-muted); text-transform:uppercase;
+}
+.modal .field input, .modal .field select, .modal .field textarea{
+  background:rgba(255,255,255,.04);
+  border:1px solid var(--panel-line);
+  border-radius:10px;
+  padding:11px 14px;
+  color:var(--text);
+  font-size:.92rem;
+  font-family:inherit;
+  transition:border-color .25s, box-shadow .25s, background .25s;
+}
+.modal .field input:focus, .modal .field select:focus, .modal .field textarea:focus{
+  outline:none; border-color:var(--gold-dim); box-shadow:0 0 0 3px rgba(212,175,55,.12);
+  background:rgba(255,255,255,.07);
+}
+.modal .field textarea{ resize:vertical; min-height:85px; }
+
+/* The action row is pinned at the bottom of the modal flexbox without overlapping content */
 .modal .modal-actions{
-  position:sticky; bottom:0; z-index:5;
-  margin:18px -28px -28px; padding:14px 28px 16px;
+  flex:none; display:flex; gap:12px;
+  padding:16px 24px;
   background:var(--surface-raised);
   border-top:1px solid var(--panel-line);
+  box-shadow:0 -4px 16px rgba(0,0,0,.06);
+  margin:0; position:static;
 }
+.modal .modal-actions .btn{ flex:1; padding:11px 16px; font-weight:600; border-radius:10px; }
 .modal .modal-actions .btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+/* ---------- Timetable / Schedule Selector ---------- */
+.timetable-picker{
+  display:flex; flex-direction:column; gap:12px;
+  background:rgba(212,175,55,.04);
+  border:1px solid var(--panel-line);
+  border-radius:12px;
+  padding:14px;
+}
+.timetable-row{
+  display:grid; grid-template-columns:1fr auto 1fr;
+  align-items:center; gap:10px;
+}
+.timetable-col{ display:flex; flex-direction:column; gap:5px; }
+.timetable-sublabel{ font-size:.72rem; color:var(--text-dim); font-weight:600; text-transform:uppercase; }
+.timetable-select{
+  width:100%;
+  background:var(--surface);
+  border:1px solid var(--panel-line);
+  border-radius:8px;
+  padding:8px 10px;
+  color:var(--text);
+  font-size:.88rem;
+  font-weight:500;
+}
+.timetable-sep{
+  font-size:.82rem; color:var(--text-dim); font-weight:600;
+  text-align:center; padding-top:18px;
+}
+.timetable-presets{ display:flex; flex-wrap:wrap; gap:6px; margin-top:2px; }
+.timetable-chip{
+  font-size:.75rem; padding:6px 11px;
+  border-radius:8px;
+  background:var(--surface);
+  border:1px solid var(--panel-line);
+  color:var(--text-muted);
+  cursor:pointer;
+  transition:all .2s;
+  font-family:inherit;
+}
+.timetable-chip:hover{ border-color:var(--gold-dim); color:var(--gold-soft); background:var(--surface-hover); }
+.timetable-chip.active{
+  background:rgba(212,175,55,.14);
+  border-color:var(--gold);
+  color:var(--gold-soft);
+  font-weight:600;
+}
+.timetable-preview-wrap{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  padding-top:6px; border-top:1px dashed var(--panel-line);
+}
+.timetable-preview{
+  display:inline-flex; align-items:center; gap:6px;
+  font-size:.82rem; font-weight:600;
+  color:var(--gold-soft);
+  padding:4px 10px; border-radius:6px;
+  background:rgba(212,175,55,.1);
+  border:1px solid var(--gold-dim);
+}
+
+/* ---------- Days Picker ---------- */
+.days-picker{ display:flex; flex-direction:column; gap:10px; }
+.days-chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.day-btn{
+  flex:1; min-width:38px; height:34px;
+  border-radius:8px;
+  border:1px solid var(--panel-line);
+  background:var(--surface);
+  color:var(--text-muted);
+  font-size:.78rem; font-weight:600;
+  display:inline-flex; align-items:center; justify-content:center;
+  cursor:pointer;
+  transition:all .2s;
+}
+.day-btn:hover{ border-color:var(--gold-dim); color:var(--gold-soft); }
+.day-btn.active{
+  background:linear-gradient(135deg,var(--gold-soft),var(--gold));
+  border-color:var(--gold);
+  color:#171006;
+  font-weight:700;
+  box-shadow:0 2px 8px rgba(212,175,55,.25);
+}
+.days-presets{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* Light theme overrides for modal */
+html[data-theme="light"] .modal{
+  background:#fffef9;
+  border-color:rgba(188,131,23,.22);
+}
+html[data-theme="light"] .modal-head{
+  border-bottom-color:rgba(188,131,23,.18);
+}
+html[data-theme="light"] .modal-head h3{ color:#2b2010; }
+html[data-theme="light"] .modal-close{
+  background:#ffffff; border-color:rgba(188,131,23,.22); color:#6b5c43;
+}
+html[data-theme="light"] .modal .field label{ color:#6b5c43; }
+html[data-theme="light"] .modal .field input,
+html[data-theme="light"] .modal .field select,
+html[data-theme="light"] .modal .field textarea{
+  background:#ffffff;
+  border-color:rgba(188,131,23,.25);
+  color:#2b2010;
+}
+html[data-theme="light"] .modal .field input:focus,
+html[data-theme="light"] .modal .field select:focus,
+html[data-theme="light"] .modal .field textarea:focus{
+  border-color:var(--gold);
+  box-shadow:0 0 0 3px rgba(188,131,23,.12);
+  background:#ffffff;
+}
+html[data-theme="light"] .modal .modal-actions{
+  background:#fffdf7;
+  border-top-color:rgba(188,131,23,.18);
+}
+html[data-theme="light"] .timetable-picker{
+  background:rgba(188,131,23,.04);
+  border-color:rgba(188,131,23,.18);
+}
+html[data-theme="light"] .timetable-select{
+  background:#ffffff; border-color:rgba(188,131,23,.22); color:#2b2010;
+}
+html[data-theme="light"] .timetable-chip{
+  background:#ffffff; border-color:rgba(188,131,23,.2); color:#4a3c28;
+}
+html[data-theme="light"] .timetable-chip.active{
+  background:rgba(188,131,23,.14); border-color:#bc8317; color:#825404;
+}
+html[data-theme="light"] .timetable-preview{
+  background:rgba(188,131,23,.1); border-color:rgba(188,131,23,.35); color:#825404;
+}
+html[data-theme="light"] .day-btn{
+  background:#ffffff; border-color:rgba(188,131,23,.22); color:#4a3c28;
+}
+html[data-theme="light"] .day-btn.active{
+  background:#bc8317; border-color:#bc8317; color:#ffffff;
+}
+
 @media (max-width:560px){
   .modal-overlay{ padding:12px 12px calc(16px + env(safe-area-inset-bottom, 0px)); }
-  .modal{ max-height:calc(100dvh - 32px); padding:22px 18px 18px; border-radius:18px; }
-  .modal .modal-actions{ margin:16px -18px -18px; padding:14px 18px calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .modal{ max-height:calc(100dvh - 28px); border-radius:16px; }
+  .modal-head{ padding:16px 18px 12px; }
+  .modal-body{ padding:16px 18px 20px; gap:14px; }
+  .modal .modal-actions{
+    padding:12px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+    flex-wrap:wrap;
+  }
+  .modal-actions .btn{ flex:1 1 100%; }
 }
 
 /* ---------- Confirm dialog ---------- */

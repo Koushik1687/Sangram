@@ -62,6 +62,186 @@ const IconSearch = () => (
   <Icon size={15}><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></Icon>
 )
 
+/* Timetable / Schedule Options for Chambers */
+const TIME_OPTIONS = [
+  '08:00 AM', '08:30 AM', '09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM',
+  '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '01:00 PM', '01:30 PM',
+  '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM', '04:30 PM',
+  '05:00 PM', '05:30 PM', '06:00 PM', '06:30 PM', '07:00 PM', '07:30 PM',
+  '08:00 PM', '08:30 PM', '09:00 PM',
+]
+
+const TIMETABLE_PRESETS = [
+  { label: 'Full Day (11 AM – 7 PM)', value: '11:00 AM – 7:00 PM', from: '11:00 AM', to: '07:00 PM' },
+  { label: 'Morning (10 AM – 2 PM)', value: '10:00 AM – 2:00 PM', from: '10:00 AM', to: '02:00 PM' },
+  { label: 'Afternoon (12 PM – 6 PM)', value: '12:00 PM – 6:00 PM', from: '12:00 PM', to: '06:00 PM' },
+  { label: 'Evening (4 PM – 8 PM)', value: '4:00 PM – 8:00 PM', from: '04:00 PM', to: '08:00 PM' },
+]
+
+const DAYS_LIST = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAYS_PRESETS = [
+  'Mon – Sat',
+  'Tue, Thu, Sat',
+  'Wed, Sun',
+  'Mon – Fri',
+  'All Days (Mon – Sun)',
+]
+
+function parseTiming(val) {
+  if (!val) return { from: '11:00 AM', to: '07:00 PM' }
+  const parts = val.split(/[–\-—]| to /i).map((s) => s.trim()).filter(Boolean)
+  return {
+    from: parts[0] || '11:00 AM',
+    to: parts[1] || '07:00 PM',
+  }
+}
+
+function ChamberTimingInput({ name, label, defaultValue, required }) {
+  const parsed = parseTiming(defaultValue)
+  const [from, setFrom] = useState(parsed.from)
+  const [to, setTo] = useState(parsed.to)
+  const [timingVal, setTimingVal] = useState(defaultValue || `${parsed.from} – ${parsed.to}`)
+
+  const applyPreset = (preset) => {
+    setFrom(preset.from)
+    setTo(preset.to)
+    setTimingVal(preset.value)
+  }
+
+  const updateFrom = (newFrom) => {
+    setFrom(newFrom)
+    setTimingVal(`${newFrom} – ${to}`)
+  }
+
+  const updateTo = (newTo) => {
+    setTo(newTo)
+    setTimingVal(`${from} – ${newTo}`)
+  }
+
+  return (
+    <div className="field">
+      <label>{label || 'Schedule & Time Table'}</label>
+      <div className="timetable-picker">
+        <div className="timetable-row">
+          <div className="timetable-col">
+            <span className="timetable-sublabel">From</span>
+            <select
+              value={from}
+              onChange={(e) => updateFrom(e.target.value)}
+              className="timetable-select"
+            >
+              {TIME_OPTIONS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+          <div className="timetable-sep">to</div>
+          <div className="timetable-col">
+            <span className="timetable-sublabel">To</span>
+            <select
+              value={to}
+              onChange={(e) => updateTo(e.target.value)}
+              className="timetable-select"
+            >
+              {TIME_OPTIONS.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="timetable-presets">
+          {TIMETABLE_PRESETS.map((p) => {
+            const isActive = timingVal === p.value
+            return (
+              <button
+                key={p.value}
+                type="button"
+                className={`timetable-chip${isActive ? ' active' : ''}`}
+                onClick={() => applyPreset(p)}
+              >
+                {p.label}
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="timetable-preview-wrap">
+          <span className="field-hint">Selected Timing:</span>
+          <span className="timetable-preview">⏰ {timingVal || 'Not set'}</span>
+        </div>
+
+        <input
+          type="hidden"
+          name={name}
+          value={timingVal}
+          required={required}
+        />
+      </div>
+    </div>
+  )
+}
+
+function ChamberDaysInput({ name, label, defaultValue, required }) {
+  const [daysText, setDaysText] = useState(defaultValue || 'Mon – Sat')
+
+  const toggleDay = (day) => {
+    const current = daysText.split(/[,–\-]/).map((s) => s.trim()).filter(Boolean)
+    let next
+    if (current.includes(day)) {
+      next = current.filter((d) => d !== day)
+    } else {
+      next = [...current, day]
+    }
+    next.sort((a, b) => DAYS_LIST.indexOf(a) - DAYS_LIST.indexOf(b))
+    setDaysText(next.join(', ') || '')
+  }
+
+  return (
+    <div className="field">
+      <label>{label || 'Consultation Days'}</label>
+      <div className="days-picker">
+        <div className="days-chips">
+          {DAYS_LIST.map((d) => {
+            const active = daysText.toLowerCase().includes(d.toLowerCase())
+            return (
+              <button
+                key={d}
+                type="button"
+                className={`day-btn${active ? ' active' : ''}`}
+                onClick={() => toggleDay(d)}
+                title={`Toggle ${d}`}
+              >
+                {d}
+              </button>
+            )
+          })}
+        </div>
+        <div className="days-presets">
+          {DAYS_PRESETS.map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={`timetable-chip${daysText === p ? ' active' : ''}`}
+              onClick={() => setDaysText(p)}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+        <input
+          type="text"
+          name={name}
+          value={daysText}
+          onChange={(e) => setDaysText(e.target.value)}
+          placeholder="e.g. Mon – Sat or Tue, Thu, Sat"
+          required={required}
+        />
+      </div>
+    </div>
+  )
+}
+
 const VIEW_TITLES = {
   overview: 'Overview',
   appointments: 'Appointments',
@@ -125,12 +305,12 @@ const SCHEMAS = {
     title: 'Chamber', endpoint: '/chambers', fields: [
       { name: 'name', label: 'Name', type: 'text', required: true },
       { name: 'address', label: 'Address', type: 'text', required: true },
-      { name: 'days', label: 'Consultation Days', type: 'text', required: true },
-      { name: 'hours', label: 'Schedule', type: 'text', required: true },
+      { name: 'consultation_days', label: 'Consultation Days', type: 'days', required: true },
+      { name: 'timing', label: 'Schedule & Time Table', type: 'timing', required: true },
       { name: 'phone', label: 'Phone', type: 'text', required: true },
     ],
     toPayload: (v) => ({
-      name: v.name, address: v.address, consultation_days: v.days, timing: v.hours, phone: v.phone,
+      name: v.name, address: v.address, consultation_days: v.consultation_days, timing: v.timing, phone: v.phone,
     }),
   },
   gallery: {
@@ -1006,23 +1186,25 @@ export default function AdminDashboard() {
                   ? `${modal.sign.n} — Edit Horoscope`
                   : `${modal.id ? 'Edit' : 'Add New'} ${modal.schema.title}`}
               </h3>
-              <button className="modal-close" onClick={closeModal}>✕</button>
+              <button className="modal-close" onClick={closeModal} aria-label="Close modal">✕</button>
             </div>
             {modal.entity === 'horoscope' ? (
               <form id="modalForm" onSubmit={saveHoroscope}>
-                {(() => {
-                  const o = overrides[modal.sign.key]
-                  const r = getReading(modal.sign.key, 'today')
-                  const f = { text: o?.message || r.text, color: o?.lucky_color || r.color, number: o?.lucky_number || r.number, mood: o?.mood || r.mood }
-                  return (
-                    <>
-                      <div className="field"><label>Message</label><textarea name="text" required defaultValue={f.text}></textarea></div>
-                      <div className="field"><label>Lucky Color</label><input type="text" name="color" required defaultValue={f.color} /></div>
-                      <div className="field"><label>Lucky Number</label><input type="text" name="number" required defaultValue={f.number} /></div>
-                      <div className="field"><label>Mood</label><input type="text" name="mood" required defaultValue={f.mood} /></div>
-                    </>
-                  )
-                })()}
+                <div className="modal-body">
+                  {(() => {
+                    const o = overrides[modal.sign.key]
+                    const r = getReading(modal.sign.key, 'today')
+                    const f = { text: o?.message || r.text, color: o?.lucky_color || r.color, number: o?.lucky_number || r.number, mood: o?.mood || r.mood }
+                    return (
+                      <>
+                        <div className="field"><label>Message</label><textarea name="text" required defaultValue={f.text}></textarea></div>
+                        <div className="field"><label>Lucky Color</label><input type="text" name="color" required defaultValue={f.color} /></div>
+                        <div className="field"><label>Lucky Number</label><input type="text" name="number" required defaultValue={f.number} /></div>
+                        <div className="field"><label>Mood</label><input type="text" name="mood" required defaultValue={f.mood} /></div>
+                      </>
+                    )
+                  })()}
+                </div>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-outline" onClick={closeModal} disabled={modalBusy}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={modalBusy}>{modalBusy ? 'Saving…' : 'Save'}</button>
@@ -1030,42 +1212,50 @@ export default function AdminDashboard() {
               </form>
             ) : (
               <form id="modalForm" onSubmit={saveEntity}>
-                {modal.schema.fields.map((f) => {
-                  const val = modal.values[f.name] != null ? modal.values[f.name] : ''
-                  if (f.type === 'file') {
-                    const current = modal.values.image_url
+                <div className="modal-body">
+                  {modal.schema.fields.map((f) => {
+                    const val = modal.values[f.name] != null ? modal.values[f.name] : ''
+                    if (f.type === 'file') {
+                      const current = modal.values.image_url
+                      return (
+                        <div className="field" key={f.name}>
+                          <label>{f.label}</label>
+                          {current && <img className="modal-img-preview" src={absUrl(current)} alt="Current product photo" loading="lazy" decoding="async" />}
+                          <input type="file" name={f.name} accept="image/*" />
+                          <span className="field-hint">JPG / PNG — replaces the photo on save.</span>
+                        </div>
+                      )
+                    }
+                    if (f.type === 'timing') {
+                      return <ChamberTimingInput key={f.name} name={f.name} label={f.label} defaultValue={val} required={f.required} />
+                    }
+                    if (f.type === 'days') {
+                      return <ChamberDaysInput key={f.name} name={f.name} label={f.label} defaultValue={val} required={f.required} />
+                    }
                     return (
                       <div className="field" key={f.name}>
                         <label>{f.label}</label>
-                        {current && <img className="modal-img-preview" src={absUrl(current)} alt="Current product photo" loading="lazy" decoding="async" />}
-                        <input type="file" name={f.name} accept="image/*" />
-                        <span className="field-hint">JPG / PNG — replaces the photo on save.</span>
+                        {f.type === 'textarea'
+                          ? <textarea name={f.name} required={f.required} defaultValue={val}></textarea>
+                          : f.type === 'select'
+                            ? f.name === 'category'
+                              ? (
+                                <select name={f.name} required={f.required} defaultValue={val || ''}>
+                                  {!categoryOptions.length && <option value="">— No categories yet —</option>}
+                                  {val && !categoryOptions.some((o) => o.value === val) && <option value={val}>{val}</option>}
+                                  {categoryOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                                </select>
+                              )
+                              : (
+                                <select name={f.name} required={f.required} defaultValue={val || f.options[0]}>
+                                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                                </select>
+                              )
+                            : <input type={f.type} name={f.name} required={f.required} defaultValue={val} />}
                       </div>
                     )
-                  }
-                  return (
-                    <div className="field" key={f.name}>
-                      <label>{f.label}</label>
-                      {f.type === 'textarea'
-                        ? <textarea name={f.name} required={f.required} defaultValue={val}></textarea>
-                        : f.type === 'select'
-                          ? f.name === 'category'
-                            ? (
-                              <select name={f.name} required={f.required} defaultValue={val || ''}>
-                                {!categoryOptions.length && <option value="">— No categories yet —</option>}
-                                {val && !categoryOptions.some((o) => o.value === val) && <option value={val}>{val}</option>}
-                                {categoryOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                              </select>
-                            )
-                            : (
-                              <select name={f.name} required={f.required} defaultValue={val || f.options[0]}>
-                                {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                              </select>
-                            )
-                          : <input type={f.type} name={f.name} required={f.required} defaultValue={val} />}
-                    </div>
-                  )
-                })}
+                  })}
+                </div>
                 <div className="modal-actions">
                   <button type="button" className="btn btn-outline" onClick={closeModal} disabled={modalBusy}>Cancel</button>
                   <button type="submit" className="btn btn-primary" disabled={modalBusy}>{modalBusy ? 'Saving…' : 'Save'}</button>
@@ -1096,9 +1286,11 @@ export default function AdminDashboard() {
           onClick={(e) => { if (e.target === e.currentTarget) setConfirm(null) }}
         >
           <div className="modal modal-sm confirm-modal">
-            <div className="confirm-icon"><IconTrash /></div>
-            <h3>{confirm.title}</h3>
-            <p>{confirm.message}</p>
+            <div className="modal-body" style={{ alignItems: 'center', textAlign: 'center', padding: '28px 24px 20px' }}>
+              <div className="confirm-icon"><IconTrash /></div>
+              <h3>{confirm.title}</h3>
+              <p>{confirm.message}</p>
+            </div>
             <div className="modal-actions">
               <button type="button" className="btn btn-outline" onClick={() => setConfirm(null)}>Cancel</button>
               <button
