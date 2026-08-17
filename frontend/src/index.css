@@ -535,7 +535,7 @@ section{ position:relative; padding:72px 0; }
 }
 .mobile-theme-opts button{
   display:flex; align-items:center; justify-content:center;
-  width:30px; height:26px;
+  width:34px; height:30px;
   border:none; background:transparent; cursor:pointer;
   border-radius:999px;
   color:var(--text-muted);
