@@ -109,7 +109,9 @@ export default function Navbar() {
     if (typeof document === 'undefined') return 'auto'
     let saved = null
     try { saved = localStorage.getItem('sree-sangram-theme') } catch (e) { /* ignore */ }
-    return saved === 'light' || saved === 'dark' ? saved : 'auto'
+    if (saved === 'light' || saved === 'dark') return saved
+    if (saved === 'auto') return 'auto'
+    return 'light'
   })
   const navRef = useRef(null)
   const { user, logout } = useAuth()
@@ -226,14 +228,15 @@ export default function Navbar() {
     applyTheme(cur === 'light' ? 'dark' : 'light')
   }
 
-  /* Follow the OS theme until the visitor makes an explicit choice */
+  /* Follow the OS theme live only when the visitor explicitly chose 'auto'.
+     A saved 'light'/'dark' stays fixed; first-time visitors keep light. */
   useEffect(() => {
     if (!window.matchMedia) return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = (e) => {
       let saved = null
       try { saved = localStorage.getItem('sree-sangram-theme') } catch (err) { /* ignore */ }
-      if (saved === 'light' || saved === 'dark') return
+      if (saved !== 'auto') return
       flipTheme(e.matches ? 'dark' : 'light')
     }
     if (mq.addEventListener) mq.addEventListener('change', onChange)

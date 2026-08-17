@@ -9,16 +9,21 @@
     <meta name="theme-color" content="#f6ecd2" />
     <script>
       // Apply the saved theme before first paint to avoid a flash. First-time
-      // visitors (no saved choice) follow the OS prefers-color-scheme.
+      // visitors (no saved choice) get the light theme; a saved 'auto' follows
+      // the OS prefers-color-scheme; a saved 'light'/'dark' is kept as-is.
       (function () {
         try {
           var root = document.documentElement
           var saved = null
           try { saved = localStorage.getItem('sree-sangram-theme') } catch (e) {}
-          // 'auto' (or no saved value) means "follow the OS preference"
-          var theme = (saved === 'light' || saved === 'dark')
-            ? saved
-            : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          var theme
+          if (saved === 'dark' || saved === 'light') {
+            theme = saved
+          } else if (saved === 'auto') {
+            theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light'
+          } else {
+            theme = 'light'
+          }
           root.setAttribute('data-theme', theme)
           var meta = document.querySelector('meta[name="theme-color"]')
           if (meta) {
