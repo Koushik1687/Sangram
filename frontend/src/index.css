@@ -337,12 +337,18 @@ section{ position:relative; padding:72px 0; }
 }
 .mobile-overlay.open{ opacity:1; visibility:visible; }
 
-/* Head — theme label + close */
+/* Head — theme control + close on one row */
 .mobile-panel-head{
-  display:flex; align-items:center; justify-content:space-between;
-  gap:10px;
-  padding:0 0 12px;
+  display:flex; align-items:center; gap:10px;
+  padding:0 0 14px;
+  border-bottom:1px solid var(--panel-line);
+  margin-bottom:16px;
   flex:none;
+}
+.mobile-theme{
+  flex:1;
+  min-width:0;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
 }
 
 .mobile-close{
@@ -509,49 +515,37 @@ section{ position:relative; padding:72px 0; }
 }
 .mobile-panel-nav a::before{ content:none; }
 
-/* Theme segmented control — sits right under the drawer head */
-.mobile-theme{
-  flex:none;
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  padding:0 0 16px;
-  border-bottom:1px solid var(--panel-line);
-  margin-bottom:16px;
-}
+/* Theme label + icon segmented control, inline in the head row */
 .mobile-theme-label{
-  font-size:.82rem; letter-spacing:.08em; text-transform:uppercase;
+  font-size:.78rem; letter-spacing:.09em; text-transform:uppercase;
   color:var(--gold-soft);
-  display:flex; align-items:center; gap:8px;
+  display:flex; align-items:center; gap:6px;
   font-weight:600;
   white-space:nowrap;
+  flex:none;
 }
 .mobile-theme-label svg{ color:var(--gold-soft); }
 .mobile-theme-opts{
   display:flex;
-  flex:1;
-  justify-content:stretch;
+  flex:none;
   background:rgba(255,255,255,.04);
   border:1px solid var(--panel-line);
   border-radius:999px;
   padding:3px; gap:2px;
 }
 .mobile-theme-opts button{
-  flex:1;
+  display:flex; align-items:center; justify-content:center;
+  width:30px; height:26px;
   border:none; background:transparent; cursor:pointer;
-  padding:6px 10px;
   border-radius:999px;
-  font-size:.78rem; letter-spacing:.02em;
   color:var(--text-muted);
-  transition:background .25s, color .25s;
-  white-space:nowrap;
+  transition:background .25s, color .25s, box-shadow .25s;
 }
+.mobile-theme-opts button:hover{ color:var(--text); }
 .mobile-theme-opts button.active{
   background:linear-gradient(135deg,var(--gold-light),var(--gold));
   color:var(--gold-ink);
-  font-weight:600;
-  box-shadow:0 4px 12px rgba(212,175,55,.3);
+  box-shadow:0 3px 10px rgba(212,175,55,.35);
 }
 
 /* ---------- Hero ---------- */

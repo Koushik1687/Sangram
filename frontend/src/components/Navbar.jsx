@@ -317,28 +317,44 @@ export default function Navbar() {
         {createPortal(
           <div id="mobile-panel" ref={navRef} className={`mobile-panel${open ? ' open' : ''}`}>
           <div className="mobile-panel-head">
-            <span className="mobile-theme-label">
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
-              </svg>
-              Theme
-            </span>
-            <button className="mobile-close" aria-label="Close menu" onClick={close}>✕</button>
-          </div>
-          <div className="mobile-theme">
-            <div className="mobile-theme-opts" role="group" aria-label="Theme">
-              {['auto', 'light', 'dark'].map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={theme === t ? 'active' : ''}
-                  onClick={() => applyTheme(t)}
-                  aria-pressed={theme === t}
-                >
-                  {t === 'auto' ? 'Auto' : t === 'light' ? 'Light' : 'Dark'}
-                </button>
-              ))}
+            <div className="mobile-theme">
+              <span className="mobile-theme-label">
+                <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                </svg>
+                Theme
+              </span>
+              <div className="mobile-theme-opts" role="group" aria-label="Theme">
+                {[['auto', 'Auto theme'], ['light', 'Light theme'], ['dark', 'Dark theme']].map(([t, label]) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={theme === t ? 'active' : ''}
+                    onClick={() => applyTheme(t)}
+                    aria-pressed={theme === t}
+                    aria-label={label}
+                    title={label}
+                  >
+                    {t === 'auto' ? (
+                      <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
+                        <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" strokeWidth="1.8" />
+                        <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor" />
+                      </svg>
+                    ) : t === 'light' ? (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                        <circle cx="12" cy="12" r="4.2" />
+                        <path d="M12 2.6v2.2M12 19.2v2.2M4.4 4.4l1.6 1.6M18 18l1.6 1.6M2.6 12h2.2M19.2 12h2.2M4.4 19.6 6 18M18 6l1.6-1.6" />
+                      </svg>
+                    ) : (
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
+            <button className="mobile-close" aria-label="Close menu" onClick={close}>✕</button>
           </div>
 
           <div className="mobile-auth">
